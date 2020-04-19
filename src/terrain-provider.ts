@@ -1,10 +1,15 @@
-import {
+import Cesium, {
   CesiumTerrainProvider,
   Cartographic,
   Rectangle,
   Ellipsoid,
-  WebMercatorTilingScheme
+  WebMercatorTilingScheme,
+  Math,
+  Cartesian3,
+  BoundingSphere,
+  QuantizedMeshTerrainData,
 } from "cesium"
+import OrientedBoundingBox from "cesium/Source/Core/OrientedBoundingBox"
 import ndarray from 'ndarray'
 import getPixels from 'get-pixels'
 import Martini from '@mapbox/martini'
@@ -56,6 +61,8 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
   async requestMapboxTile (x, y, z) {
     const access_token = process.env.MAPBOX_API_TOKEN
     const mx = this.tilingScheme.getNumberOfYTilesAtLevel(z)
+    const err = this.getLevelMaximumGeometricError(z+1)
+
 
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
@@ -66,12 +73,15 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
     // set up mesh generator for a certain 2^k+1 grid size
     // generate RTIN hierarchy from terrain data (an array of size^2 length)
     const tile = this.martini.createTile(terrain);
-    console.log(tile)
 
     // get a mesh (vertices and triangles indices) for a 10m error
-    const mesh = tile.getMesh(10);
-    console.log(mesh)
+    console.log(`Error level: ${err}`)
+    const mesh = tile.getMesh(err);
 
+    const terrainTile = this.createQuantizedMeshData(x, y, z, tile, mesh)
+
+    console.log(tile, mesh, terrainTile)
+    return terrainTile
 
   }
 
@@ -100,17 +110,94 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
     }
   }
 
-  requestTileGeometry (x, y, z) {
-    console.log(x,y,z)
-    const geom = super.requestTileGeometry(x, y, z)
+  createQuantizedMeshData (x, y, z, tile, mesh) {
+    const err = this.getLevelMaximumGeometricError(z+1)
+    const skirtHeight = err*5
+
+    const header = this.generateDummyTileHeader(x,y,z)
+
+    const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z)
+    const boundingSphereCenter = new Cartesian3(
+      header.boundingSphereCenterX,
+      header.boundingSphereCenterY,
+      header.boundingSphereCenterZ
+    )
+    const boundingSphere = new BoundingSphere(
+      boundingSphereCenter,
+      header.boundingSphereRadius
+    )
+    const horizonOcclusionPoint = new Cartesian3(
+      header.horizonOcclusionPointX,
+      header.horizonOcclusionPointY,
+      header.horizonOcclusionPointZ
+    )
+    let orientedBoundingBox
+
+    if (tileRect.width < Math.PI_OVER_TWO + Math.EPSILON5) {
+      // @ts-ignore
+      orientedBoundingBox = OrientedBoundingBox.fromRectangle(
+        tileRect,
+        header.minHeight,
+        header.maxHeight
+      )
+    }
 
 
-    this.requestMapboxTile(x,y,z)
-
-    return geom.then(value => {
-      console.log(value)
-      return value
+    /*
+    new QuantizedMeshTerrainData({
+      minimumHeight: header.minHeight,
+      maximumHeight: header.maxHeight,
+      quantizedVertices: vertexData,
+      indices: mesh.triangleIndices,
+      boundingSphere: boundingSphere,
+      horizonOcclusionPoint: horizonOcclusionPoint,
+      westIndices: null,
+      southIndices: null,
+      eastIndices: null,
+      northIndices: null,
+      westSkirtHeight: 100,
+      southSkirtHeight: 100,
+      eastSkirtHeight: 100,
+      northSkirtHeight: 100,
+      childTileMask: 15,
+      // @ts-ignore
+      orientedBoundingBox
     })
+    */
+
+    return new QuantizedMeshTerrainData({
+        minimumHeight : -100,
+        maximumHeight : 500,
+        quantizedVertices : new Uint16Array([// order is SW NW SE NE
+                                             // longitude
+                                             0, 0, 32767, 32767,
+                                             // latitude
+                                             0, 32767, 0, 32767,
+                                             // heights
+                                             16384, 0, 32767, 16384]),
+        indices : new Uint16Array([0, 3, 1,
+                                   0, 2, 3]),
+        boundingSphere,
+        // @ts-ignore
+        orientedBoundingBox,
+        horizonOcclusionPoint,
+        westIndices : [0, 1],
+        southIndices : [0, 1],
+        eastIndices : [2, 3],
+        northIndices : [1, 3],
+        westSkirtHeight : skirtHeight,
+        southSkirtHeight : skirtHeight,
+        eastSkirtHeight : skirtHeight,
+        northSkirtHeight : skirtHeight
+    })
+  }
+
+  async requestTileGeometry (x, y, z) {
+    console.log(x,y,z)
+    const geom = await super.requestTileGeometry(x, y, z)
+    const mapboxTile = await this.requestMapboxTile(x,y,z)
+    console.log(geom, mapboxTile)
+    return geom
   }
 
 }
