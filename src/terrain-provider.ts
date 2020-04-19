@@ -5,21 +5,21 @@ import {
   Ellipsoid,
   WebMercatorTilingScheme
 } from "cesium"
+import ndarray from 'ndarray'
+import getPixels from 'get-pixels'
 import Martini from '@mapbox/martini'
 
-function mapboxTerrainToGrid(png) {
-    const gridSize = png.width + 1;
+function mapboxTerrainToGrid(png: ndarray<number>) {
+    const gridSize = png.shape[0] + 1;
     const terrain = new Float32Array(gridSize * gridSize);
-
-    const tileSize = png.width;
+    const tileSize = png.shape[0];
 
     // decode terrain values
     for (let y = 0; y < tileSize; y++) {
         for (let x = 0; x < tileSize; x++) {
-            const k = (y * tileSize + x) * 3;
-            const r = png.data[k + 0];
-            const g = png.data[k + 1];
-            const b = png.data[k + 2];
+            const r = png.get(x,y,0);
+            const g = png.get(x,y,1);
+            const b = png.get(x,y,2);
             terrain[y * gridSize + x] = (r * 256 * 256 + g * 256.0 + b) / 10.0 - 10000.0;
         }
     }
@@ -30,7 +30,6 @@ function mapboxTerrainToGrid(png) {
     for (let y = 0; y < gridSize; y++) {
         terrain[gridSize * y + gridSize - 1] = terrain[gridSize * y + gridSize - 2];
     }
-
     return terrain;
 }
 
@@ -45,6 +44,15 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
 
   }
 
+  async getPixels(url: string, type=""): Promise<ndarray<number>> {
+    return new Promise((resolve, reject)=>{
+      getPixels(url, type, (err, array)=>{
+        if (err != null) reject(err)
+        resolve(array)
+      })
+    })
+  }
+
   async requestMapboxTile (x, y, z) {
     const access_token = process.env.MAPBOX_API_TOKEN
     const mx = this.tilingScheme.getNumberOfYTilesAtLevel(z)
@@ -52,11 +60,8 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     const url =  `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z+1}/${x}/${y}.pngraw?access_token=${access_token}`
-
-    const v = await window.fetch(url)
-    const data = await v.body.getReader().read()
-    const terrain = mapboxTerrainToGrid({data: data.value, width: 256, height: 256})
-    console.log(terrain)
+    const pxArray = await this.getPixels(url)
+    const terrain = mapboxTerrainToGrid(pxArray)
 
     // set up mesh generator for a certain 2^k+1 grid size
     // generate RTIN hierarchy from terrain data (an array of size^2 length)
@@ -64,7 +69,7 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
     console.log(tile)
 
     // get a mesh (vertices and triangles indices) for a 10m error
-    const mesh = tile.getMesh(4);
+    const mesh = tile.getMesh(10);
     console.log(mesh)
 
 

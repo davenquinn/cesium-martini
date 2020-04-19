@@ -13,7 +13,9 @@
     "@here/quantized-mesh-decoder": "^1.1.3",
     "@mapbox/martini": "^0.2.0",
     "@types/cesium": "^1.67.3",
-    "axios": "^0.19.2"
+    "@types/ndarray": "^1.0.7",
+    "axios": "^0.19.2",
+    "get-pixels": "^3.3.2"
   },
   "devDependencies": {
     "cesium": "^1.68.0",
