@@ -2,7 +2,7 @@ import "cesiumSource/Widgets/widgets.css"
 import "./main.css"
 const Cesium: any = require('cesiumSource/Cesium')
 // Import @types/cesium to use along with CesiumJS
-import { Viewer, Ion, IonResource, CesiumTerrainProvider } from 'cesium';
+import { Viewer, Ion, IonResource } from 'cesium';
 import TerrainProvider from "./terrain-provider"
 
 const terrainProvider = new TerrainProvider({

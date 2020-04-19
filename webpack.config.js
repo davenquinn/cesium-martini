@@ -1,6 +1,6 @@
 const HtmlWebpackPlugin = require('html-webpack-plugin')
 const CopyPlugin = require('copy-webpack-plugin')
-const Dotenv = require('dotenv-webpack')
+const DotenvPlugin = require('dotenv-webpack')
 const {DefinePlugin} = require("webpack")
 const path = require("path")
 
@@ -55,6 +55,7 @@ module.exports = {
     new CopyPlugin([ { from: path.join(cesiumSource, cesiumWorkers), to: 'Workers' } ]),
     new CopyPlugin([ { from: path.join(cesiumSource, 'Assets'), to: 'Assets' } ]),
     new CopyPlugin([ { from: path.join(cesiumSource, 'Widgets'), to: 'Widgets' } ]),
+    new DotenvPlugin(),
     new DefinePlugin({
         // Define relative base path in cesium for loading assets
         CESIUM_BASE_URL: JSON.stringify("/")
