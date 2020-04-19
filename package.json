@@ -1,0 +1,23 @@
+{
+  "name": "@macrostrat/cesium-martini",
+  "version": "1.0.0",
+  "description": "",
+  "main": "webpack.config.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@mapbox/martini": "^0.2.0",
+    "@types/cesium": "^1.67.3"
+  },
+  "devDependencies": {
+    "cesium": "^1.68.0",
+    "source-map-loader": "^0.2.4",
+    "ts-loader": "^7.0.0",
+    "typescript": "^3.8.3",
+    "webpack": "^4.42.1",
+    "webpack-cli": "^3.3.11"
+  }
+}
