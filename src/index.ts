@@ -1,33 +1,55 @@
-import "cesium/Widgets/widgets.css"
+import "cesiumSource/Widgets/widgets.css"
 import "./main.css"
-// @ts-ignore
-import * as Cesium from "cesium/Cesium"
+const Cesium: any = require('cesiumSource/Cesium')
+// Import @types/cesium to use along with CesiumJS
+import { Viewer, Ion } from 'cesium';
 
 var opts = {
   terrainProvider: Cesium.createWorldTerrain(),
-  imageryProvider : Cesium.createWorldImagery({
-      style : Cesium.IonWorldImageryStyle.AERIAL
-  }),
-  //baseLayerPicker : false,
+  imageryProvider : new Cesium.GridImageryProvider(),
+  // @ts-ignore
+  skyBox: false as false,
+  baseLayerPicker : false,
   geocoder: false,
-  //skyAtmosphere: true,
+  skyAtmosphere: false,
   animation: false,
   timeline: false,
   // Makes cesium not render high fps all the time
-  requestRenderMode : true,
+  //requestRenderMode : true,
   // Use full scene buffer (respecting pixel ratio) if this is false
-  useBrowserRecommendedResolution: false
+  useBrowserRecommendedResolution: false,
+  terrainExaggeration: 1.5
 }
 
-
-Cesium.Ion.defaultAccessToken = process.env.CESIUM_ACCESS_TOKEN;
+Ion.defaultAccessToken = process.env.CESIUM_ACCESS_TOKEN;
 
 const domID = "cesium-container"
 const g = document.createElement('div');
 g.id = domID;
 document.body.appendChild(g)
 
-var viewer = new Cesium.Viewer(domID, opts)
+var clon = -21.133786
+var clat = 14.5481193
+
+var viewer = new Viewer(domID, opts)
+
+//var extent = Cesium.Rectangle.fromDegrees(clat-1, clon-0.5, clat-1, clon+0.5);
+var extent = Cesium.Cartesian3.fromDegrees(clat, clon-0.3, 10000)
+
+viewer.scene.globe.baseColor = Cesium.Color.AQUAMARINE
+viewer.scene.globe._surface._tileProvider._debug.wireframe = true
+// @ts-ignore
+//viewer.extend(Cesium.viewerCesiumInspectorMixin)
+
+viewer.camera.setView({
+    destination : extent,
+    orientation: {
+        heading : Cesium.Math.toRadians(0), // east, default value is 0.0 (north)
+        pitch : Cesium.Math.toRadians(-15),    // default value (looking down)
+        roll : 0.0                             // default value
+    }
+});
+
 //viewer.resolutionScale = 2
 //viewer.scene.globe.enableLighting = true
 //viewer.canvas.style.imageRendering = false
