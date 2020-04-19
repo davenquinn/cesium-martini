@@ -1,3 +1,6 @@
+const HtmlWebpackPlugin = require('html-webpack-plugin')
+const {join} = require("path")
+
 module.exports = {
   // Enable sourcemaps for debugging webpack's output.
   devtool: "source-map",
@@ -24,13 +27,11 @@ module.exports = {
       }
     ]
   },
-
-  // When importing a module whose path matches one of the following, just
-  // assume a corresponding global variable exists and use that instead.
-  // This is important because it allows us to avoid bundling all of our
-  // dependencies, which allows browsers to cache those libraries between builds.
-  externals: {
-    react: "React",
-    "react-dom": "ReactDOM"
-  }
+  entry: "./src/index.ts",
+  output: {
+    path: join(__dirname, "dist")
+  },
+  plugins: [
+    new HtmlWebpackPlugin({title: "Mapbox / Cesium Terrain"}),
+  ]
 };
