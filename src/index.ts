@@ -2,16 +2,24 @@ import "cesiumSource/Widgets/widgets.css"
 import "./main.css"
 const Cesium: any = require('cesiumSource/Cesium')
 // Import @types/cesium to use along with CesiumJS
-import { Viewer, Ion } from 'cesium';
+import { Viewer, Ion, IonResource, CesiumTerrainProvider } from 'cesium';
+import TerrainProvider from "./terrain-provider"
+
+const terrainProvider = new TerrainProvider({
+    // @ts-ignore
+    url: IonResource.fromAssetId("1"),
+    requestVertexNormals: false,
+    requestWaterMask: false
+});
 
 var opts = {
-  terrainProvider: Cesium.createWorldTerrain(),
+  terrainProvider,
   imageryProvider : new Cesium.GridImageryProvider(),
   // @ts-ignore
   skyBox: false as false,
   baseLayerPicker : false,
   geocoder: false,
-  skyAtmosphere: false,
+  skyAtmosphere: false as false,
   animation: false,
   timeline: false,
   // Makes cesium not render high fps all the time
@@ -37,9 +45,11 @@ var viewer = new Viewer(domID, opts)
 var extent = Cesium.Cartesian3.fromDegrees(clat, clon-0.3, 10000)
 
 viewer.scene.globe.baseColor = Cesium.Color.AQUAMARINE
+// @ts-ignore
 viewer.scene.globe._surface._tileProvider._debug.wireframe = true
 // @ts-ignore
 //viewer.extend(Cesium.viewerCesiumInspectorMixin)
+
 
 viewer.camera.setView({
     destination : extent,
