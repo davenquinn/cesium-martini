@@ -15,8 +15,13 @@
   },
   "devDependencies": {
     "cesium": "^1.68.0",
+    "copy-webpack-plugin": "^5.1.1",
+    "css-loader": "^3.5.2",
+    "dotenv-webpack": "^1.7.0",
+    "file-loader": "^6.0.0",
     "html-webpack-plugin": "^4.2.0",
     "source-map-loader": "^0.2.4",
+    "style-loader": "^1.1.4",
     "ts-loader": "^7.0.0",
     "typescript": "^3.8.3",
     "webpack": "^4.42.1",
