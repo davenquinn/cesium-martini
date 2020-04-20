@@ -4,7 +4,7 @@ import Cesium, {
   Rectangle,
   Ellipsoid,
   WebMercatorTilingScheme,
-  Math,
+  Math as CMath,
   Cartesian3,
   BoundingSphere,
   QuantizedMeshTerrainData,
@@ -134,7 +134,7 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
     )
     let orientedBoundingBox
 
-    if (tileRect.width < Math.PI_OVER_TWO + Math.EPSILON5) {
+    if (tileRect.width < CMath.PI_OVER_TWO + CMath.EPSILON5) {
       // @ts-ignore
       orientedBoundingBox = OrientedBoundingBox.fromRectangle(
         tileRect,
@@ -171,31 +171,73 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
 
     const geom = await super.requestTileGeometry(x, y, z)
 
-    console.log(geom)
+    console.log(geom, tile, mesh)
     //return geom
 
+    // multiply by a factor of 128
+    // vertices is an array of x-y coordinates in pixel space
+
+    // indices is an array of triangle coordinates
+
+    const xvals = []
+    const yvals = []
+    const heightMeters = []
+    const northIndices = []
+    const southIndices = []
+    const eastIndices = []
+    const westIndices = []
+
+
+    for (let ix = 0; ix < mesh.vertices.length; ix++) {
+      const vertexIx = ix/2
+      x = mesh.vertices[ix]
+      ix++
+      y = mesh.vertices[ix]
+      heightMeters.push(tile.terrain[x*256+y])
+
+      if (y == 0) northIndices.push(vertexIx)
+      if (y == 256) southIndices.push(vertexIx)
+      if (x == 0) westIndices.push(vertexIx)
+      if (x == 256) eastIndices.push(vertexIx)
+
+      xvals.push(x*128)
+      yvals.push(y*128)
+    }
+
+    const mx = Math.max.apply(this, heightMeters)
+    const mn = Math.min.apply(this, heightMeters)
+
+    const heights = heightMeters.map(d => (d-mn)*(32768/(mx-mn)))
+
+
+    //const heights = verticesXY.map(([x,y])=>terrain.get(x,y))
+
+    //if (z > 10) debugger
+
+    //debugger
+    console.log(mn, mx, xvals, yvals, heights)
+
     return new QuantizedMeshTerrainData({
-        minimumHeight : -100,
-        maximumHeight : 500,
+        minimumHeight : mn,
+        maximumHeight : mx,
         quantizedVertices : new Uint16Array([// order is SW NW SE NE
                                              // longitude
-                                             0, 0, 32767, 32767,
+                                            ...xvals,
                                              // latitude
-                                             0, 32767, 0, 32767,
+                                             ...yvals,
                                              // heights
-                                             16384, 0, 32767, 16384]),
-        indices : new Uint16Array([0, 3, 1,
-                                   0, 2, 3]),
+                                             ...heights]),
+        indices : new Uint16Array(mesh.triangles),
         // @ts-ignore
         boundingSphere: geom._boundingSphere,
         // @ts-ignore
         orientedBoundingBox: geom._orientedBoundingBox,
         // @ts-ignore
         horizonOcclusionPoint: geom._horizonOcclusionPoint,
-        westIndices : [0, 1],
-        southIndices : [0, 1],
-        eastIndices : [2, 3],
-        northIndices : [1, 3],
+        westIndices,
+        southIndices,
+        eastIndices,
+        northIndices,
         westSkirtHeight : skirtHeight,
         southSkirtHeight : skirtHeight,
         eastSkirtHeight : skirtHeight,
