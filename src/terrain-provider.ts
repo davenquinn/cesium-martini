@@ -78,7 +78,7 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
     console.log(`Error level: ${err}`)
     const mesh = tile.getMesh(err);
 
-    const terrainTile = this.createQuantizedMeshData(x, y, z, tile, mesh)
+    const terrainTile = await this.createQuantizedMeshData(x, y, z, tile, mesh)
 
     console.log(tile, mesh, terrainTile)
     return terrainTile
@@ -110,7 +110,7 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
     }
   }
 
-  createQuantizedMeshData (x, y, z, tile, mesh) {
+  async createQuantizedMeshData (x, y, z, tile, mesh) {
     const err = this.getLevelMaximumGeometricError(z+1)
     const skirtHeight = err*5
 
@@ -122,9 +122,10 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
       header.boundingSphereCenterY,
       header.boundingSphereCenterZ
     )
-    const boundingSphere = new BoundingSphere(
+    let boundingSphere = new BoundingSphere(
       boundingSphereCenter,
-      header.boundingSphereRadius
+      // radius
+      100000
     )
     const horizonOcclusionPoint = new Cartesian3(
       header.horizonOcclusionPointX,
@@ -140,6 +141,9 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
         header.minHeight,
         header.maxHeight
       )
+
+      // @ts-ignore
+      boundingSphere = BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox)
     }
 
 
@@ -165,6 +169,11 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
     })
     */
 
+    const geom = await super.requestTileGeometry(x, y, z)
+
+    console.log(geom)
+    //return geom
+
     return new QuantizedMeshTerrainData({
         minimumHeight : -100,
         maximumHeight : 500,
@@ -177,10 +186,12 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
                                              16384, 0, 32767, 16384]),
         indices : new Uint16Array([0, 3, 1,
                                    0, 2, 3]),
-        boundingSphere,
         // @ts-ignore
-        orientedBoundingBox,
-        horizonOcclusionPoint,
+        boundingSphere: geom._boundingSphere,
+        // @ts-ignore
+        orientedBoundingBox: geom._orientedBoundingBox,
+        // @ts-ignore
+        horizonOcclusionPoint: geom._horizonOcclusionPoint,
         westIndices : [0, 1],
         southIndices : [0, 1],
         eastIndices : [2, 3],
@@ -188,16 +199,16 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
         westSkirtHeight : skirtHeight,
         southSkirtHeight : skirtHeight,
         eastSkirtHeight : skirtHeight,
-        northSkirtHeight : skirtHeight
+        northSkirtHeight : skirtHeight,
+        childTileMask: 15
     })
   }
 
   async requestTileGeometry (x, y, z) {
     console.log(x,y,z)
-    const geom = await super.requestTileGeometry(x, y, z)
     const mapboxTile = await this.requestMapboxTile(x,y,z)
-    console.log(geom, mapboxTile)
-    return geom
+    //if (z > 10) debugger
+    return mapboxTile
   }
 
 }

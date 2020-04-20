@@ -14,7 +14,9 @@ const terrainProvider = new TerrainProvider({
 
 var opts = {
   terrainProvider,
-  imageryProvider : new Cesium.GridImageryProvider(),
+  // imageryProvider : Cesium.createWorldImagery({
+  //   style : Cesium.IonWorldImageryStyle.AERIAL
+  // }),
   // @ts-ignore
   skyBox: false as false,
   baseLayerPicker : false,
@@ -36,21 +38,24 @@ const g = document.createElement('div');
 g.id = domID;
 document.body.appendChild(g)
 
-var clon = -21.133786
-var clat = 14.5481193
+var clat = -21.133786
+var clon = 14.5481193
+
+const rect = Cesium.Rectangle.fromDegrees(clon-0.01, clat-0.01, clon+0.01, clat+0.01)
+Cesium.Camera.DEFAULT_VIEW_RECTANGLE = rect;
+Cesium.Camera.DEFAULT_VIEW_FACTOR = 0.005;
+Cesium.Camera.DEFAULT_VIEW_OFFSET = new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-10), 1)
 
 var viewer = new Viewer(domID, opts)
 
-//var extent = Cesium.Rectangle.fromDegrees(clat-1, clon-0.5, clat-1, clon+0.5);
-var extent = Cesium.Cartesian3.fromDegrees(clat, clon-0.3, 10000)
-
-viewer.scene.globe.baseColor = Cesium.Color.AQUAMARINE
+//viewer.scene.globe.baseColor = Cesium.Color.AQUAMARINE
 // @ts-ignore
 viewer.scene.globe._surface._tileProvider._debug.wireframe = true
 // @ts-ignore
 //viewer.extend(Cesium.viewerCesiumInspectorMixin)
 
 
+var extent = Cesium.Cartesian3.fromDegrees(clon, clat-0.3, 8000)
 viewer.camera.setView({
     destination : extent,
     orientation: {
