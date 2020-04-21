@@ -124,7 +124,7 @@ class MapboxTerrainProvider {
     let boundingSphere = new BoundingSphere(
       Cartesian3.ZERO,
       // radius
-      6800000
+      6379792.481506292
     )
 
     const xvals = []
@@ -152,39 +152,39 @@ class MapboxTerrainProvider {
       yvals.push(py*128)
     }
 
-    const minHeight = Math.max.apply(this, heightMeters)
-    const maxHeight = Math.min.apply(this, heightMeters)
+    const maxHeight = Math.max.apply(this, heightMeters)
+    const minHeight = Math.min.apply(this, heightMeters)
 
-    const heights = heightMeters.map(d => (d-minHeight)*(32768/(maxHeight-minHeight)))
+    const heights = heightMeters.map(d =>{
+      if (maxHeight-minHeight < 1) return 0
+      return (d-minHeight)*(32768/(maxHeight-minHeight))
+    })
+
+    let orientedBoundingBox = null
+
 
     if (tileRect.width < CMath.PI_OVER_TWO + CMath.EPSILON5) {
       // @ts-ignore
-      orientedBoundingBox = OrientedBoundingBox.fromRectangle(
-        tileRect,
-        minHeight,
-        maxHeight
-      )
-
+      orientedBoundingBox = OrientedBoundingBox.fromRectangle(tileRect, minHeight, maxHeight)
       // @ts-ignore
-      boundingSphere = BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox)
+      //boundingSphere = BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox)
     }
 
-    console.log(x,y,z, tileRect, tileNativeRect, boundingSphere)
-
-    //const defaultTile = _shadow
-
-    //debugger
+    // @ts-ignore
+    console.log(maxHeight, minHeight, heights, boundingSphere)
 
     return new QuantizedMeshTerrainData({
       minimumHeight: minHeight,
       maximumHeight: maxHeight,
-      quantizedVertices: new Uint16Array([// order is SW NW SE NE
+      quantizedVertices: new Uint16Array([
+        // order is SW NW SE NE
         // longitude
         ...xvals,
         // latitude
         ...yvals,
         // heights
-        ...heights]),
+        ...heights
+      ]),
       indices : new Uint16Array(mesh.triangles),
       // @ts-ignore
       boundingSphere,
@@ -205,10 +205,14 @@ class MapboxTerrainProvider {
   }
 
   async requestTileGeometry (x, y, z) {
-    const mapboxTile = await this.requestMapboxTile(x,y,z)
-    console.log(mapboxTile)
+    try {
+      const mapboxTile = await this.requestMapboxTile(x,y,z)
+      console.log(mapboxTile)
+      return mapboxTile
+    } catch(err) {
+      console.log(err)
+    }
     //if (z > 10) debugger
-    return mapboxTile
   }
 
   getLevelMaximumGeometricError (level) {
@@ -232,10 +236,10 @@ class TestTerrainProvider extends CesiumTerrainProvider {
   async requestTileGeometry (x, y, z) {
     const tile = await super.requestTileGeometry(x,y,z)
     //const mapboxTile = await this.mapboxProvider.requestTileGeometry(x,y,z+1)
-    //console.log(tile, mapboxTile)
+    console.log(tile)//, mapboxTile)
     //if (z > 10) debugger
     return tile
   }
 }
 
-export default MapboxTerrainProvider
+export default TestTerrainProvider
