@@ -5,16 +5,17 @@ import Cesium, {
   WebMercatorTilingScheme,
   TerrainProvider,
   Math as CMath,
+  Event as CEvent,
   Cartesian3,
   BoundingSphere,
   QuantizedMeshTerrainData,
+  CesiumTerrainProvider,
   Credit
 } from "cesium"
 import OrientedBoundingBox from "cesium/Source/Core/OrientedBoundingBox"
 import ndarray from 'ndarray'
 import getPixels from 'get-pixels'
 import Martini from '@mapbox/martini'
-import CesiumTerrainProvider from './cesium-terrain-provider'
 
 function mapboxTerrainToGrid(png: ndarray<number>) {
     const gridSize = png.shape[0] + 1;
@@ -50,21 +51,29 @@ class MapboxTerrainProvider {
   ready: boolean
   readyPromise: Promise<boolean>
   availability = null
-  errorEvent: TerrainProvider['errorEvent'] = null
+  errorEvent = new CEvent()
+  tilingScheme: TerrainProvider["tilingScheme"]
+  ellipsoid: Ellipsoid
+  //_shadow?: CesiumTerrainProvider
 
-  tilingScheme = new WebMercatorTilingScheme({
-    numberOfLevelZeroTilesX: 1,
-    numberOfLevelZeroTilesY: 1
-  })
   // @ts-ignore
   constructor(opts) {
-    opts.projection = 'EPSG:3857'
-    console.log(opts)
 
     //this.martini = new Martini(257);
     this.martini = new Martini(257)
     this.ready = true
     this.readyPromise = Promise.resolve(true)
+
+    this.errorEvent.addEventListener(console.log, this);
+    this.ellipsoid = Ellipsoid.WGS84
+
+    this.tilingScheme = new WebMercatorTilingScheme({
+      numberOfLevelZeroTilesX: 1,
+      numberOfLevelZeroTilesY: 1,
+      ellipsoid: this.ellipsoid
+    })
+
+    //this._shadow = new CesiumTerrainProvider(opts)
   }
 
   async getPixels(url: string, type=""): Promise<ndarray<number>> {
@@ -97,11 +106,14 @@ class MapboxTerrainProvider {
     const mesh = tile.getMesh(err);
 
     const terrainTile = await this.createQuantizedMeshData(x, y, z, tile, mesh)
+    console.log(terrainTile)
     return terrainTile
   }
 
+  async createQuantizedMeshData (x, y, z, tile, mesh) {
+    const err = this.getLevelMaximumGeometricError(z)
+    const skirtHeight = err*5
 
-  generateDummyTileHeader (x, y, z) {
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z)
     const tileNativeRect = this.tilingScheme.tileXYToNativeRectangle(x, y, z)
     const tileCenter = Cartographic.toCartesian(Rectangle.center(tileRect))
@@ -109,89 +121,11 @@ class MapboxTerrainProvider {
       tileCenter
     )
 
-    return {
-      centerX: tileCenter.x,
-      centerY: tileCenter.y,
-      centerZ: tileCenter.z,
-      minHeight: 0,
-      maxHeight: 0,
-      boundingSphereCenterX: tileCenter.x,
-      boundingSphereCenterY: tileCenter.y,
-      boundingSphereCenterZ: tileCenter.z,
-      boundingSphereRadius: tileNativeRect.height,
-      horizonOcclusionPointX: horizonOcclusionPoint.x,
-      horizonOcclusionPointY: horizonOcclusionPoint.y,
-      horizonOcclusionPointZ: horizonOcclusionPoint.z
-    }
-  }
-
-  async createQuantizedMeshData (x, y, z, tile, mesh) {
-    const err = this.getLevelMaximumGeometricError(z)
-    const skirtHeight = err*5
-
-    const header = this.generateDummyTileHeader(x,y,z)
-
-    const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z)
-    const boundingSphereCenter = new Cartesian3(
-      header.boundingSphereCenterX,
-      header.boundingSphereCenterY,
-      header.boundingSphereCenterZ
-    )
     let boundingSphere = new BoundingSphere(
-      boundingSphereCenter,
+      Cartesian3.ZERO,
       // radius
-      1000000
+      6800000
     )
-    const horizonOcclusionPoint = new Cartesian3(
-      header.horizonOcclusionPointX,
-      header.horizonOcclusionPointY,
-      header.horizonOcclusionPointZ
-    )
-    let orientedBoundingBox
-
-    if (tileRect.width < CMath.PI_OVER_TWO + CMath.EPSILON5) {
-      // @ts-ignore
-      orientedBoundingBox = OrientedBoundingBox.fromRectangle(
-        tileRect,
-        header.minHeight,
-        header.maxHeight
-      )
-
-      // @ts-ignore
-      boundingSphere = BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox)
-    }
-
-
-    /*
-    new QuantizedMeshTerrainData({
-      minimumHeight: header.minHeight,
-      maximumHeight: header.maxHeight,
-      quantizedVertices: vertexData,
-      indices: mesh.triangleIndices,
-      boundingSphere: boundingSphere,
-      horizonOcclusionPoint: horizonOcclusionPoint,
-      westIndices: null,
-      southIndices: null,
-      eastIndices: null,
-      northIndices: null,
-      westSkirtHeight: 100,
-      southSkirtHeight: 100,
-      eastSkirtHeight: 100,
-      northSkirtHeight: 100,
-      childTileMask: 15,
-      // @ts-ignore
-      orientedBoundingBox
-    })
-    */
-
-    //const geom = await super.requestTileGeometry(x, y, z)
-
-    //return geom
-
-    // multiply by a factor of 128
-    // vertices is an array of x-y coordinates in pixel space
-
-    // indices is an array of triangle coordinates
 
     const xvals = []
     const yvals = []
@@ -204,64 +138,73 @@ class MapboxTerrainProvider {
 
     for (let ix = 0; ix < mesh.vertices.length; ix++) {
       const vertexIx = ix/2
-      x = mesh.vertices[ix]
+      const px = mesh.vertices[ix]
       ix++
-      y = mesh.vertices[ix]
-      heightMeters.push(tile.terrain[x*256+y])
+      const py = mesh.vertices[ix]
+      heightMeters.push(tile.terrain[px*256+py])
 
-      if (y == 0) northIndices.push(vertexIx)
-      if (y == 256) southIndices.push(vertexIx)
-      if (x == 0) westIndices.push(vertexIx)
-      if (x == 256) eastIndices.push(vertexIx)
+      if (py == 0) northIndices.push(vertexIx)
+      if (py == 256) southIndices.push(vertexIx)
+      if (px == 0) westIndices.push(vertexIx)
+      if (px == 256) eastIndices.push(vertexIx)
 
-      xvals.push(x*128)
-      yvals.push(y*128)
+      xvals.push(px*128)
+      yvals.push(py*128)
     }
 
-    const mx = Math.max.apply(this, heightMeters)
-    const mn = Math.min.apply(this, heightMeters)
+    const minHeight = Math.max.apply(this, heightMeters)
+    const maxHeight = Math.min.apply(this, heightMeters)
 
-    const heights = heightMeters.map(d => (d-mn)*(32768/(mx-mn)))
+    const heights = heightMeters.map(d => (d-minHeight)*(32768/(maxHeight-minHeight)))
 
+    if (tileRect.width < CMath.PI_OVER_TWO + CMath.EPSILON5) {
+      // @ts-ignore
+      orientedBoundingBox = OrientedBoundingBox.fromRectangle(
+        tileRect,
+        minHeight,
+        maxHeight
+      )
 
-    //const heights = verticesXY.map(([x,y])=>terrain.get(x,y))
+      // @ts-ignore
+      boundingSphere = BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox)
+    }
 
-    //if (z > 10) debugger
+    console.log(x,y,z, tileRect, tileNativeRect, boundingSphere)
+
+    //const defaultTile = _shadow
 
     //debugger
-    console.log(mn, mx, xvals, yvals, heights)
 
     return new QuantizedMeshTerrainData({
-        minimumHeight : mn,
-        maximumHeight : mx,
-        quantizedVertices : new Uint16Array([// order is SW NW SE NE
-                                             // longitude
-                                            ...xvals,
-                                             // latitude
-                                             ...yvals,
-                                             // heights
-                                             ...heights]),
-        indices : new Uint16Array(mesh.triangles),
-        // @ts-ignore
-        boundingSphere,
-        // @ts-ignore
-        orientedBoundingBox,
-        // @ts-ignore
-        horizonOcclusionPoint,
-        westIndices,
-        southIndices,
-        eastIndices,
-        northIndices,
-        westSkirtHeight : skirtHeight,
-        southSkirtHeight : skirtHeight,
-        eastSkirtHeight : skirtHeight,
-        northSkirtHeight : skirtHeight,
-        childTileMask: 15
+      minimumHeight: minHeight,
+      maximumHeight: maxHeight,
+      quantizedVertices: new Uint16Array([// order is SW NW SE NE
+        // longitude
+        ...xvals,
+        // latitude
+        ...yvals,
+        // heights
+        ...heights]),
+      indices : new Uint16Array(mesh.triangles),
+      // @ts-ignore
+      boundingSphere,
+      // @ts-ignore
+      orientedBoundingBox,
+      // @ts-ignore
+      horizonOcclusionPoint,
+      westIndices,
+      southIndices,
+      eastIndices,
+      northIndices,
+      westSkirtHeight : skirtHeight,
+      southSkirtHeight : skirtHeight,
+      eastSkirtHeight : skirtHeight,
+      northSkirtHeight : skirtHeight,
+      //childTileMask: 15
     })
   }
 
   async requestTileGeometry (x, y, z) {
-    console.log(x,y,z)
     const mapboxTile = await this.requestMapboxTile(x,y,z)
     console.log(mapboxTile)
     //if (z > 10) debugger
@@ -281,6 +224,17 @@ class MapboxTerrainProvider {
 
   getTileDataAvailable(x, y, z) {
     return z <= 15
+  }
+}
+
+class TestTerrainProvider extends CesiumTerrainProvider {
+  mapboxProvider = new MapboxTerrainProvider({})
+  async requestTileGeometry (x, y, z) {
+    const tile = await super.requestTileGeometry(x,y,z)
+    //const mapboxTile = await this.mapboxProvider.requestTileGeometry(x,y,z+1)
+    //console.log(tile, mapboxTile)
+    //if (z > 10) debugger
+    return tile
   }
 }
 
