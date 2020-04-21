@@ -9,6 +9,7 @@ import Cesium, {
   Cartesian3,
   BoundingSphere,
   QuantizedMeshTerrainData,
+  HeightmapTerrainData,
   CesiumTerrainProvider,
   Credit
 } from "cesium"
@@ -111,7 +112,8 @@ class MapboxTerrainProvider {
   }
 
   async createQuantizedMeshData (x, y, z, tile, mesh) {
-    const err = this.getLevelMaximumGeometricError(z)
+    const err = this.getLevelMaximumGeometricError(z)/10
+    console.log(err, z)
     const skirtHeight = err*5
 
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z)
@@ -167,15 +169,23 @@ class MapboxTerrainProvider {
       // @ts-ignore
       orientedBoundingBox = OrientedBoundingBox.fromRectangle(tileRect, minHeight, maxHeight)
       // @ts-ignore
-      //boundingSphere = BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox)
+      boundingSphere = BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox)
     }
 
     // @ts-ignore
-    console.log(maxHeight, minHeight, heights, boundingSphere)
+    console.log(minHeight, maxHeight, heights, orientedBoundingBox, boundingSphere)
+
+    if (z < 4) {
+      return new HeightmapTerrainData({
+        buffer: new Uint8Array(Array(32*32).fill(0)),
+        width: 32,
+        height: 32
+      })
+    }
 
     return new QuantizedMeshTerrainData({
-      minimumHeight: minHeight,
-      maximumHeight: maxHeight,
+      minimumHeight: Math.max(minHeight, 0),
+      maximumHeight: Math.max(maxHeight, 0),
       quantizedVertices: new Uint16Array([
         // order is SW NW SE NE
         // longitude
@@ -242,4 +252,4 @@ class TestTerrainProvider extends CesiumTerrainProvider {
   }
 }
 
-export default TestTerrainProvider
+export default MapboxTerrainProvider
