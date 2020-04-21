@@ -1,18 +1,20 @@
 import Cesium, {
-  CesiumTerrainProvider,
   Cartographic,
   Rectangle,
   Ellipsoid,
   WebMercatorTilingScheme,
+  TerrainProvider,
   Math as CMath,
   Cartesian3,
   BoundingSphere,
   QuantizedMeshTerrainData,
+  Credit
 } from "cesium"
 import OrientedBoundingBox from "cesium/Source/Core/OrientedBoundingBox"
 import ndarray from 'ndarray'
 import getPixels from 'get-pixels'
 import Martini from '@mapbox/martini'
+import CesiumTerrainProvider from './cesium-terrain-provider'
 
 function mapboxTerrainToGrid(png: ndarray<number>) {
     const gridSize = png.shape[0] + 1;
@@ -30,23 +32,39 @@ function mapboxTerrainToGrid(png: ndarray<number>) {
     }
     // backfill right and bottom borders
     for (let x = 0; x < gridSize - 1; x++) {
-        terrain[gridSize * (gridSize - 1) + x] = terrain[gridSize * (gridSize - 2) + x];
+      terrain[gridSize * (gridSize - 1) + x] = terrain[gridSize * (gridSize - 2) + x];
     }
     for (let y = 0; y < gridSize; y++) {
-        terrain[gridSize * y + gridSize - 1] = terrain[gridSize * y + gridSize - 2];
+      terrain[gridSize * y + gridSize - 1] = terrain[gridSize * y + gridSize - 2];
     }
     return terrain;
 }
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
-class MapboxTerrainProvider extends CesiumTerrainProvider {
+class MapboxTerrainProvider {
   martini: any
-  constructor(opts) {
-    console.log(opts)
-    super(opts)
-    this.martini = new Martini(257);
+  hasWaterMask = false
+  hasVertexNormals = false
+  credit = new Credit("Mapbox")
+  ready: boolean
+  readyPromise: Promise<boolean>
+  availability = null
+  errorEvent: TerrainProvider['errorEvent'] = null
 
+  tilingScheme = new WebMercatorTilingScheme({
+    numberOfLevelZeroTilesX: 1,
+    numberOfLevelZeroTilesY: 1
+  })
+  // @ts-ignore
+  constructor(opts) {
+    opts.projection = 'EPSG:3857'
+    console.log(opts)
+
+    //this.martini = new Martini(257);
+    this.martini = new Martini(257)
+    this.ready = true
+    this.readyPromise = Promise.resolve(true)
   }
 
   async getPixels(url: string, type=""): Promise<ndarray<number>> {
@@ -61,12 +79,12 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
   async requestMapboxTile (x, y, z) {
     const access_token = process.env.MAPBOX_API_TOKEN
     const mx = this.tilingScheme.getNumberOfYTilesAtLevel(z)
-    const err = this.getLevelMaximumGeometricError(z+1)
+    const err = this.getLevelMaximumGeometricError(z)
 
 
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
-    const url =  `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z+1}/${x}/${y}.pngraw?access_token=${access_token}`
+    const url =  `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}.pngraw?access_token=${access_token}`
     const pxArray = await this.getPixels(url)
     const terrain = mapboxTerrainToGrid(pxArray)
 
@@ -79,10 +97,7 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
     const mesh = tile.getMesh(err);
 
     const terrainTile = await this.createQuantizedMeshData(x, y, z, tile, mesh)
-
-    console.log(tile, mesh, terrainTile)
     return terrainTile
-
   }
 
 
@@ -111,7 +126,7 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
   }
 
   async createQuantizedMeshData (x, y, z, tile, mesh) {
-    const err = this.getLevelMaximumGeometricError(z+1)
+    const err = this.getLevelMaximumGeometricError(z)
     const skirtHeight = err*5
 
     const header = this.generateDummyTileHeader(x,y,z)
@@ -125,7 +140,7 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
     let boundingSphere = new BoundingSphere(
       boundingSphereCenter,
       // radius
-      100000
+      1000000
     )
     const horizonOcclusionPoint = new Cartesian3(
       header.horizonOcclusionPointX,
@@ -169,9 +184,8 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
     })
     */
 
-    const geom = await super.requestTileGeometry(x, y, z)
+    //const geom = await super.requestTileGeometry(x, y, z)
 
-    console.log(geom, tile, mesh)
     //return geom
 
     // multiply by a factor of 128
@@ -229,11 +243,11 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
                                              ...heights]),
         indices : new Uint16Array(mesh.triangles),
         // @ts-ignore
-        boundingSphere: geom._boundingSphere,
+        boundingSphere,
         // @ts-ignore
-        orientedBoundingBox: geom._orientedBoundingBox,
+        orientedBoundingBox,
         // @ts-ignore
-        horizonOcclusionPoint: geom._horizonOcclusionPoint,
+        horizonOcclusionPoint,
         westIndices,
         southIndices,
         eastIndices,
@@ -249,10 +263,25 @@ class MapboxTerrainProvider extends CesiumTerrainProvider {
   async requestTileGeometry (x, y, z) {
     console.log(x,y,z)
     const mapboxTile = await this.requestMapboxTile(x,y,z)
+    console.log(mapboxTile)
     //if (z > 10) debugger
     return mapboxTile
   }
 
+  getLevelMaximumGeometricError (level) {
+    const levelZeroMaximumGeometricError = TerrainProvider
+      .getEstimatedLevelZeroGeometricErrorForAHeightmap(
+        this.tilingScheme.ellipsoid,
+        65,
+        this.tilingScheme.getNumberOfXTilesAtLevel(0)
+      )
+
+    return levelZeroMaximumGeometricError / (1 << level)
+  }
+
+  getTileDataAvailable(x, y, z) {
+    return z <= 15
+  }
 }
 
 export default MapboxTerrainProvider
