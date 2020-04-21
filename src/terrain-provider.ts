@@ -26,9 +26,9 @@ function mapboxTerrainToGrid(png: ndarray<number>) {
     // decode terrain values
     for (let y = 0; y < tileSize; y++) {
         for (let x = 0; x < tileSize; x++) {
-            const r = png.get(x,y,0);
-            const g = png.get(x,y,1);
-            const b = png.get(x,y,2);
+            const r = png.get(x,255-y,0);
+            const g = png.get(x,255-y,1);
+            const b = png.get(x,255-y,2);
             terrain[y * gridSize + x] = (r * 256 * 256 + g * 256.0 + b) / 10.0 - 10000.0;
         }
     }
@@ -95,29 +95,46 @@ class MapboxTerrainProvider {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     const url =  `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}.pngraw?access_token=${access_token}`
-    const pxArray = await this.getPixels(url)
-    const terrain = mapboxTerrainToGrid(pxArray)
 
-    // set up mesh generator for a certain 2^k+1 grid size
-    // generate RTIN hierarchy from terrain data (an array of size^2 length)
-    const tile = this.martini.createTile(terrain);
+    try {
+      const pxArray = await this.getPixels(url)
 
-    // get a mesh (vertices and triangles indices) for a 10m error
-    console.log(`Error level: ${err}`)
-    const mesh = tile.getMesh(err);
+      const terrain = mapboxTerrainToGrid(pxArray)
 
-    const terrainTile = await this.createQuantizedMeshData(x, y, z, tile, mesh)
-    console.log(terrainTile)
-    return terrainTile
+      // set up mesh generator for a certain 2^k+1 grid size
+      // generate RTIN hierarchy from terrain data (an array of size^2 length)
+      const tile = this.martini.createTile(terrain);
+
+      // get a mesh (vertices and triangles indices) for a 10m error
+      console.log(`Error level: ${err}`)
+      const mesh = tile.getMesh(err);
+
+      const terrainTile = await this.createQuantizedMeshData(x, y, z, tile, mesh)
+      console.log(terrainTile)
+      return terrainTile
+
+    } catch(err) {
+      console.log(err)
+      const v = Math.max(32-4*z, 4)
+      return this.emptyHeightmap(v)
+    }
+  }
+
+  emptyHeightmap(samples) {
+    return new HeightmapTerrainData({
+      buffer: new Uint8Array(Array(samples*samples).fill(0)),
+      width: samples,
+      height: samples
+    })
   }
 
   async createQuantizedMeshData (x, y, z, tile, mesh) {
-    const err = this.getLevelMaximumGeometricError(z)/10
+    const err = this.getLevelMaximumGeometricError(z)
     console.log(err, z)
     const skirtHeight = err*5
 
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z)
-    const tileNativeRect = this.tilingScheme.tileXYToNativeRectangle(x, y, z)
+    //const tileNativeRect = this.tilingScheme.tileXYToNativeRectangle(x, y, z)
     const tileCenter = Cartographic.toCartesian(Rectangle.center(tileRect))
     const horizonOcclusionPoint = Ellipsoid.WGS84.transformPositionToScaledSpace(
       tileCenter
@@ -143,15 +160,18 @@ class MapboxTerrainProvider {
       const px = mesh.vertices[ix]
       ix++
       const py = mesh.vertices[ix]
-      heightMeters.push(tile.terrain[px*256+py])
+      heightMeters.push(tile.terrain[py*256+px])
 
       if (py == 0) northIndices.push(vertexIx)
       if (py == 256) southIndices.push(vertexIx)
       if (px == 0) westIndices.push(vertexIx)
       if (px == 256) eastIndices.push(vertexIx)
 
-      xvals.push(px*128)
-      yvals.push(py*128)
+      let xv = Math.min(px*128,32767)
+      let yv = Math.min(py*128,32767)
+
+      xvals.push(xv)
+      yvals.push(yv)
     }
 
     const maxHeight = Math.max.apply(this, heightMeters)
@@ -159,7 +179,7 @@ class MapboxTerrainProvider {
 
     const heights = heightMeters.map(d =>{
       if (maxHeight-minHeight < 1) return 0
-      return (d-minHeight)*(32768/(maxHeight-minHeight))
+      return (d-minHeight)*(32767/(maxHeight-minHeight))
     })
 
     let orientedBoundingBox = null
@@ -175,12 +195,8 @@ class MapboxTerrainProvider {
     // @ts-ignore
     console.log(minHeight, maxHeight, heights, orientedBoundingBox, boundingSphere)
 
-    if (z < 4) {
-      return new HeightmapTerrainData({
-        buffer: new Uint8Array(Array(32*32).fill(0)),
-        width: 32,
-        height: 32
-      })
+    if (z < 5) {
+      return this.emptyHeightmap(32)
     }
 
     return new QuantizedMeshTerrainData({
