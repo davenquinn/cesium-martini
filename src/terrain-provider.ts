@@ -18,6 +18,17 @@ import ndarray from 'ndarray'
 import getPixels from 'get-pixels'
 import Martini from '@mapbox/martini'
 
+// Function stolen to rewind a ring
+// https://github.com/mapbox/geojson-rewind/blob/master/index.js
+function rewindRing(ring, dir) {
+    var area = 0;
+    for (var i = 0, len = ring.length, j = len - 1; i < len; j = i++) {
+        area += (ring[i][0] - ring[j][0]) * (ring[j][1] + ring[i][1]);
+    }
+    if (area <= 0) ring.reverse();
+    return ring
+}
+
 function mapboxTerrainToGrid(png: ndarray<number>) {
     const gridSize = png.shape[0] + 1;
     const terrain = new Float32Array(gridSize * gridSize);
@@ -26,9 +37,10 @@ function mapboxTerrainToGrid(png: ndarray<number>) {
     // decode terrain values
     for (let y = 0; y < tileSize; y++) {
         for (let x = 0; x < tileSize; x++) {
-            const r = png.get(x,255-y,0);
-            const g = png.get(x,255-y,1);
-            const b = png.get(x,255-y,2);
+            const yc = 255-y
+            const r = png.get(yc,x,0);
+            const g = png.get(yc,x,1);
+            const b = png.get(yc,x,2);
             terrain[y * gridSize + x] = (r * 256 * 256 + g * 256.0 + b) / 10.0 - 10000.0;
         }
     }
@@ -107,7 +119,7 @@ class MapboxTerrainProvider {
 
       // get a mesh (vertices and triangles indices) for a 10m error
       console.log(`Error level: ${err}`)
-      const mesh = tile.getMesh(err);
+      const mesh = tile.getMesh(err*20);
 
       const terrainTile = await this.createQuantizedMeshData(x, y, z, tile, mesh)
       console.log(terrainTile)
@@ -160,7 +172,7 @@ class MapboxTerrainProvider {
       const px = mesh.vertices[ix]
       ix++
       const py = mesh.vertices[ix]
-      heightMeters.push(tile.terrain[py*256+px])
+      heightMeters.push(tile.terrain[(256-py)*256+px])
 
       if (py == 0) northIndices.push(vertexIx)
       if (py == 256) southIndices.push(vertexIx)
@@ -168,7 +180,7 @@ class MapboxTerrainProvider {
       if (px == 256) eastIndices.push(vertexIx)
 
       let xv = Math.min(px*128,32767)
-      let yv = Math.min(py*128,32767)
+      let yv = Math.min((256-py)*128,32767)
 
       xvals.push(xv)
       yvals.push(yv)
@@ -176,6 +188,11 @@ class MapboxTerrainProvider {
 
     const maxHeight = Math.max.apply(this, heightMeters)
     const minHeight = Math.min.apply(this, heightMeters)
+
+
+
+
+    console.log(minHeight, maxHeight, heightMeters)
 
     const heights = heightMeters.map(d =>{
       if (maxHeight-minHeight < 1) return 0
@@ -192,26 +209,60 @@ class MapboxTerrainProvider {
       boundingSphere = BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox)
     }
 
+
+    //debugger
+
+    const triangles = new Uint16Array(mesh.triangles)
+    // function shouldRewind(indices) {
+    //     var area = 0;
+    //     for (var i = 0, len = indices.length, j = len - 1; i < len; j = i++) {
+    //       const ixi = indices[i]
+    //       const ixj = indices[j]
+    //       area += (xvals[ixi] - xvals[ixj]) * (yvals[ixj] + yvals[ixi]);
+    //     }
+    //     return area <= 0
+    // }
+    //
+    // for (let ix = 0; ix < mesh.triangles.length/3; ix++) {
+    //   const startIx = ix*3
+    //   // triangles[startIx] = mesh.triangles[startIx+1]
+    //   // triangles[startIx+1] = mesh.triangles[startIx+2]
+    //   // triangles[startIx+2] = mesh.triangles[startIx]
+    //   const rewind = shouldRewind(mesh.triangles.subarray(startIx, startIx+3))
+    //   if (rewind) {
+    //     triangles[startIx] = mesh.triangles[startIx]
+    //     triangles[startIx+1] = mesh.triangles[startIx+2]
+    //     triangles[startIx+2] = mesh.triangles[startIx+1]
+    //   }
+    //
+    // }
+
     // @ts-ignore
-    console.log(minHeight, maxHeight, heights, orientedBoundingBox, boundingSphere)
 
     if (z < 5) {
       return this.emptyHeightmap(32)
     }
 
+    const quantizedVertices = new Uint16Array([
+      // order is NE SE NW SW
+      // longitude
+      ...xvals,
+      // latitude
+      ...yvals,
+      // heights
+      ...heights
+    ])
+
+    // SE NW NE
+    // NE NW SE
+
+    console.log(quantizedVertices, triangles)
+
     return new QuantizedMeshTerrainData({
       minimumHeight: Math.max(minHeight, 0),
       maximumHeight: Math.max(maxHeight, 0),
-      quantizedVertices: new Uint16Array([
-        // order is SW NW SE NE
-        // longitude
-        ...xvals,
-        // latitude
-        ...yvals,
-        // heights
-        ...heights
-      ]),
-      indices : new Uint16Array(mesh.triangles),
+      quantizedVertices,
+      indices : triangles,
       // @ts-ignore
       boundingSphere,
       // @ts-ignore
@@ -233,7 +284,6 @@ class MapboxTerrainProvider {
   async requestTileGeometry (x, y, z) {
     try {
       const mapboxTile = await this.requestMapboxTile(x,y,z)
-      console.log(mapboxTile)
       return mapboxTile
     } catch(err) {
       console.log(err)

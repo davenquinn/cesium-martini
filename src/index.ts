@@ -50,9 +50,9 @@ var viewer = new Cesium.Viewer(domID, opts)
 
 //viewer.scene.globe.baseColor = Cesium.Color.AQUAMARINE
 // @ts-ignore
-viewer.scene.globe._surface._tileProvider._debug.wireframe = true
+//viewer.scene.globe._surface._tileProvider._debug.wireframe = true
 // @ts-ignore
-//viewer.extend(Cesium.viewerCesiumInspectorMixin)
+viewer.extend(Cesium.viewerCesiumInspectorMixin)
 
 
 var extent = Cesium.Cartesian3.fromDegrees(clon, clat-0.3, 8000)
