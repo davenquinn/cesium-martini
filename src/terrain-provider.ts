@@ -38,9 +38,9 @@ function mapboxTerrainToGrid(png: ndarray<number>) {
     for (let y = 0; y < tileSize; y++) {
         for (let x = 0; x < tileSize; x++) {
             const yc = y
-            const r = png.get(yc,x,0);
-            const g = png.get(yc,x,1);
-            const b = png.get(yc,x,2);
+            const r = png.get(x,yc,0);
+            const g = png.get(x,yc,1);
+            const b = png.get(x,yc,2);
             terrain[y * gridSize + x] = (r * 256 * 256 + g * 256.0 + b) / 10.0 - 10000.0;
         }
     }
@@ -170,7 +170,7 @@ class MapboxTerrainProvider {
       const vertexIx = ix
       const px = mesh.vertices[ix*2]
       const py = mesh.vertices[ix*2+1]
-      heightMeters.push(tile.terrain[py*256+px])
+      heightMeters.push(tile.terrain[py*257+px])
 
       if (py == 0) northIndices.push(vertexIx)
       if (py == 256) southIndices.push(vertexIx)
