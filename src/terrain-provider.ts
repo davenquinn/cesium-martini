@@ -56,6 +56,13 @@ function mapboxTerrainToGrid(png: ndarray<number>) {
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
+interface Vertex {
+  x: number,
+  y: number,
+  z: number,
+  ix: number
+}
+
 class MapboxTerrainProvider {
   martini: any
   hasWaterMask = false
@@ -159,36 +166,62 @@ class MapboxTerrainProvider {
 
     const xvals = []
     const yvals = []
-    const heightMeters = []
     const northIndices = []
     const southIndices = []
     const eastIndices = []
     const westIndices = []
 
+    let vertices: Vertex[] = []
+
 
     for (let ix = 0; ix < mesh.vertices.length/2; ix++) {
-      const vertexIx = ix
-      const px = mesh.vertices[ix*2]
-      const py = mesh.vertices[ix*2+1]
-      heightMeters.push(tile.terrain[py*256+px])
+      const py = mesh.vertices[ix*2]
+      const px = mesh.vertices[ix*2+1]
+      const ht = tile.terrain[py*256+px]
 
-      if (py == 0) northIndices.push(vertexIx)
-      if (py == 256) southIndices.push(vertexIx)
-      if (px == 0) westIndices.push(vertexIx)
-      if (px == 256) eastIndices.push(vertexIx)
+      //let xv = Math.min(px*128,32767)
+      //let yv = Math.min((256-py)*128,32767)
 
-      let xv = Math.min(px*128,32767)
-      let yv = Math.min((256-py)*128,32767)
+      vertices.push({
+        x: px,
+        y: py,
+        z: ht,
+        ix
+      })
 
-      xvals.push(xv)
-      yvals.push(yv)
     }
+    // SW NW SE NE
+    vertices.sort((a,b)=>{
+      const xv = b.y-a.y
+      if (xv == 0) {
+        return a.x-b.x
+      }
+      return xv
+    })
 
+    let indexMap: {[a: number]: number} = {}
+    vertices.forEach((d,i) =>{
+      indexMap[d.ix] = i
+    })
+
+    const tri1 = mesh.triangles.map(d=>indexMap[d])
+
+    const heightMeters: number[] = vertices.map(d => d.z)
     const maxHeight = Math.max.apply(this, heightMeters)
     const minHeight = Math.min.apply(this, heightMeters)
 
+    let ix = 0
+    for (const v of vertices) {
+      if (v.y == 0) northIndices.push(ix)
+      if (v.y == 256) southIndices.push(ix)
+      if (v.x == 0) westIndices.push(ix)
+      if (v.x == 256) eastIndices.push(ix)
 
+      xvals.push(v.x * 128)
+      yvals.push((256-v.y) * 128)
 
+      ix += 1
+    }
 
     console.log(minHeight, maxHeight, heightMeters)
 
@@ -208,7 +241,7 @@ class MapboxTerrainProvider {
     }
 
 
-    const triangles = new Uint16Array(mesh.triangles)
+    const triangles = new Uint16Array(tri1)
     // function shouldRewind(indices) {
     //     var area = 0;
     //     for (var i = 0, len = indices.length, j = len - 1; i < len; j = i++) {
@@ -219,34 +252,25 @@ class MapboxTerrainProvider {
     //     return area >= 0
     // }
     //
-    // for (let ix = 0; ix < mesh.triangles.length/3; ix++) {
-    //   const startIx = ix*3
-    //   // triangles[startIx] = mesh.triangles[startIx+1]
-    //   // triangles[startIx+1] = mesh.triangles[startIx+2]
-    //   // triangles[startIx+2] = mesh.triangles[startIx]
-    //   const rewind = shouldRewind(mesh.triangles.subarray(startIx, startIx+3))
-    //   if (!rewind) {
-    //     triangles[startIx] = mesh.triangles[startIx]
-    //     triangles[startIx+1] = mesh.triangles[startIx+2]
-    //     triangles[startIx+2] = mesh.triangles[startIx+1]
-    //   }
-    //
-    // }
+    for (let ix = 0; ix < tri1.length/3; ix++) {
+      const startIx = ix*3
+      triangles[startIx] = tri1[startIx]
+      triangles[startIx+1] = tri1[startIx+2]
+      triangles[startIx+2] = tri1[startIx+1]
+      // const rewind = shouldRewind(mesh.triangles.subarray(startIx, startIx+3))
+      // if (!rewind) {
+      //   triangles[startIx] = mesh.triangles[startIx]
+      //   triangles[startIx+1] = mesh.triangles[startIx+2]
+      //   triangles[startIx+2] = mesh.triangles[startIx+1]
+      // }
+
+    }
 
     // @ts-ignore
 
     if (z < 5) {
       return this.emptyHeightmap(32)
     }
-
-    let verts = []
-    xvals.forEach(function(x, i) {
-      verts.push(x)
-      verts.push(yvals[i])
-      verts.push(heights[i])
-    });
-
-    console.log(verts)
 
     const quantizedVertices = new Uint16Array(
       //verts
