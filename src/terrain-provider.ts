@@ -37,7 +37,7 @@ function mapboxTerrainToGrid(png: ndarray<number>) {
     // decode terrain values
     for (let y = 0; y < tileSize; y++) {
         for (let x = 0; x < tileSize; x++) {
-            const yc = 255-y
+            const yc = y
             const r = png.get(yc,x,0);
             const g = png.get(yc,x,1);
             const b = png.get(yc,x,2);
@@ -119,7 +119,7 @@ class MapboxTerrainProvider {
 
       // get a mesh (vertices and triangles indices) for a 10m error
       console.log(`Error level: ${err}`)
-      const mesh = tile.getMesh(err*20);
+      const mesh = tile.getMesh(err);
 
       const terrainTile = await this.createQuantizedMeshData(x, y, z, tile, mesh)
       console.log(terrainTile)
@@ -142,7 +142,6 @@ class MapboxTerrainProvider {
 
   async createQuantizedMeshData (x, y, z, tile, mesh) {
     const err = this.getLevelMaximumGeometricError(z)
-    console.log(err, z)
     const skirtHeight = err*5
 
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z)
@@ -167,12 +166,11 @@ class MapboxTerrainProvider {
     const westIndices = []
 
 
-    for (let ix = 0; ix < mesh.vertices.length; ix++) {
-      const vertexIx = ix/2
-      const px = mesh.vertices[ix]
-      ix++
-      const py = mesh.vertices[ix]
-      heightMeters.push(tile.terrain[(256-py)*256+px])
+    for (let ix = 0; ix < mesh.vertices.length/2; ix++) {
+      const vertexIx = ix
+      const px = mesh.vertices[ix*2]
+      const py = mesh.vertices[ix*2+1]
+      heightMeters.push(tile.terrain[py*256+px])
 
       if (py == 0) northIndices.push(vertexIx)
       if (py == 256) southIndices.push(vertexIx)
@@ -210,8 +208,6 @@ class MapboxTerrainProvider {
     }
 
 
-    //debugger
-
     const triangles = new Uint16Array(mesh.triangles)
     // function shouldRewind(indices) {
     //     var area = 0;
@@ -220,7 +216,7 @@ class MapboxTerrainProvider {
     //       const ixj = indices[j]
     //       area += (xvals[ixi] - xvals[ixj]) * (yvals[ixj] + yvals[ixi]);
     //     }
-    //     return area <= 0
+    //     return area >= 0
     // }
     //
     // for (let ix = 0; ix < mesh.triangles.length/3; ix++) {
@@ -229,7 +225,7 @@ class MapboxTerrainProvider {
     //   // triangles[startIx+1] = mesh.triangles[startIx+2]
     //   // triangles[startIx+2] = mesh.triangles[startIx]
     //   const rewind = shouldRewind(mesh.triangles.subarray(startIx, startIx+3))
-    //   if (rewind) {
+    //   if (!rewind) {
     //     triangles[startIx] = mesh.triangles[startIx]
     //     triangles[startIx+1] = mesh.triangles[startIx+2]
     //     triangles[startIx+2] = mesh.triangles[startIx+1]
@@ -243,15 +239,19 @@ class MapboxTerrainProvider {
       return this.emptyHeightmap(32)
     }
 
-    const quantizedVertices = new Uint16Array([
-      // order is NE SE NW SW
-      // longitude
-      ...xvals,
-      // latitude
-      ...yvals,
-      // heights
-      ...heights
-    ])
+    let verts = []
+    xvals.forEach(function(x, i) {
+      verts.push(x)
+      verts.push(yvals[i])
+      verts.push(heights[i])
+    });
+
+    console.log(verts)
+
+    const quantizedVertices = new Uint16Array(
+      //verts
+      [...xvals, ...yvals, ...heights]
+    )
 
     // SE NW NE
     // NE NW SE
