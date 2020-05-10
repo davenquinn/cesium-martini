@@ -9,7 +9,8 @@ const terrainProvider = new TerrainProvider({
     // @ts-ignore
     url: IonResource.fromAssetId("1"),
     requestVertexNormals: false,
-    requestWaterMask: false
+    requestWaterMask: false,
+    accessToken: process.env.MAPBOX_API_TOKEN
 });
 
 var opts = {
