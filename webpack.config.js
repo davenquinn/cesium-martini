@@ -41,7 +41,7 @@ module.exports = {
   node: {
     fs: 'empty'
   },
-  entry: "./src/index.ts",
+  entry: "./example/index.ts",
   output: {
     path: path.join(__dirname, "dist"),
     sourcePrefix: ""

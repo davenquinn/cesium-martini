@@ -1,4 +1,4 @@
-import Cesium, {
+import {
   Cartographic,
   Rectangle,
   Ellipsoid,
@@ -11,23 +11,13 @@ import Cesium, {
   QuantizedMeshTerrainData,
   HeightmapTerrainData,
   CesiumTerrainProvider,
+  // @ts-ignore
+  OrientedBoundingBox,
   Credit
 } from "cesium"
-import OrientedBoundingBox from "cesium/Source/Core/OrientedBoundingBox"
 import ndarray from 'ndarray'
 import getPixels from 'get-pixels'
 import Martini from '@mapbox/martini'
-
-// Function stolen to rewind a ring
-// https://github.com/mapbox/geojson-rewind/blob/master/index.js
-function rewindRing(ring, dir) {
-    var area = 0;
-    for (var i = 0, len = ring.length, j = len - 1; i < len; j = i++) {
-        area += (ring[i][0] - ring[j][0]) * (ring[j][1] + ring[i][1]);
-    }
-    if (area <= 0) ring.reverse();
-    return ring
-}
 
 function mapboxTerrainToGrid(png: ndarray<number>) {
     const gridSize = png.shape[0] + 1;
@@ -67,7 +57,7 @@ class MapboxTerrainProvider {
   errorEvent = new CEvent()
   tilingScheme: TerrainProvider["tilingScheme"]
   ellipsoid: Ellipsoid
-  //_shadow?: CesiumTerrainProvider
+  accessToken: string
 
   // @ts-ignore
   constructor(opts) {
@@ -76,6 +66,7 @@ class MapboxTerrainProvider {
     this.martini = new Martini(257)
     this.ready = true
     this.readyPromise = Promise.resolve(true)
+    this.accessToken = opts.accessToken
 
     this.errorEvent.addEventListener(console.log, this);
     this.ellipsoid = Ellipsoid.WGS84
@@ -86,7 +77,6 @@ class MapboxTerrainProvider {
       ellipsoid: this.ellipsoid
     })
 
-    //this._shadow = new CesiumTerrainProvider(opts)
   }
 
   async getPixels(url: string, type=""): Promise<ndarray<number>> {
@@ -99,14 +89,12 @@ class MapboxTerrainProvider {
   }
 
   async requestMapboxTile (x, y, z) {
-    const access_token = process.env.MAPBOX_API_TOKEN
     const mx = this.tilingScheme.getNumberOfYTilesAtLevel(z)
     const err = this.getLevelMaximumGeometricError(z)
 
-
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
-    const url =  `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}.pngraw?access_token=${access_token}`
+    const url =  `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}.pngraw?access_token=${this.accessToken}`
 
     try {
       const pxArray = await this.getPixels(url)
@@ -121,12 +109,8 @@ class MapboxTerrainProvider {
       console.log(`Error level: ${err}`)
       const mesh = tile.getMesh(err);
 
-      const terrainTile = await this.createQuantizedMeshData(x, y, z, tile, mesh)
-      console.log(terrainTile)
-      return terrainTile
-
+      return await this.createQuantizedMeshData(x, y, z, tile, mesh)
     } catch(err) {
-      console.log(err)
       const v = Math.max(32-4*z, 4)
       return this.emptyHeightmap(v)
     }
@@ -187,11 +171,6 @@ class MapboxTerrainProvider {
     const maxHeight = Math.max.apply(this, heightMeters)
     const minHeight = Math.min.apply(this, heightMeters)
 
-
-
-
-    console.log(minHeight, maxHeight, heightMeters)
-
     const heights = heightMeters.map(d =>{
       if (maxHeight-minHeight < 1) return 0
       return (d-minHeight)*(32767/(maxHeight-minHeight))
@@ -207,35 +186,12 @@ class MapboxTerrainProvider {
       boundingSphere = BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox)
     }
 
-
     const triangles = new Uint16Array(mesh.triangles)
-    // function shouldRewind(indices) {
-    //     var area = 0;
-    //     for (var i = 0, len = indices.length, j = len - 1; i < len; j = i++) {
-    //       const ixi = indices[i]
-    //       const ixj = indices[j]
-    //       area += (xvals[ixi] - xvals[ixj]) * (yvals[ixj] + yvals[ixi]);
-    //     }
-    //     return area >= 0
-    // }
-    //
-    // for (let ix = 0; ix < mesh.triangles.length/3; ix++) {
-    //   const startIx = ix*3
-    //   // triangles[startIx] = mesh.triangles[startIx+1]
-    //   // triangles[startIx+1] = mesh.triangles[startIx+2]
-    //   // triangles[startIx+2] = mesh.triangles[startIx]
-    //   const rewind = shouldRewind(mesh.triangles.subarray(startIx, startIx+3))
-    //   if (!rewind) {
-    //     triangles[startIx] = mesh.triangles[startIx]
-    //     triangles[startIx+1] = mesh.triangles[startIx+2]
-    //     triangles[startIx+2] = mesh.triangles[startIx+1]
-    //   }
-    //
-    // }
 
     // @ts-ignore
 
     if (z < 5) {
+      // We need to be able to specify a minimum number of triangles...
       return this.emptyHeightmap(32)
     }
 
@@ -255,8 +211,6 @@ class MapboxTerrainProvider {
 
     // SE NW NE
     // NE NW SE
-
-    console.log(quantizedVertices, triangles)
 
     return new QuantizedMeshTerrainData({
       minimumHeight: Math.max(minHeight, 0),
@@ -288,7 +242,6 @@ class MapboxTerrainProvider {
     } catch(err) {
       console.log(err)
     }
-    //if (z > 10) debugger
   }
 
   getLevelMaximumGeometricError (level) {
