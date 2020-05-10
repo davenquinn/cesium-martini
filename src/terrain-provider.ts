@@ -202,8 +202,6 @@ class MapboxTerrainProvider {
       verts.push(heights[i])
     });
 
-    console.log(verts)
-
     const quantizedVertices = new Uint16Array(
       //verts
       [...xvals, ...yvals, ...heights]
@@ -213,8 +211,8 @@ class MapboxTerrainProvider {
     // NE NW SE
 
     return new QuantizedMeshTerrainData({
-      minimumHeight: Math.max(minHeight, 0),
-      maximumHeight: Math.max(maxHeight, 0),
+      minimumHeight: minHeight,
+      maximumHeight: maxHeight,
       quantizedVertices,
       indices : triangles,
       // @ts-ignore

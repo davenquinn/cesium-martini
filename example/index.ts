@@ -13,6 +13,12 @@ const terrainProvider = new TerrainProvider({
     accessToken: process.env.MAPBOX_API_TOKEN
 });
 
+let satellite = new Cesium.MapboxImageryProvider({
+  mapId : 'mapbox.satellite',
+  maximumLevel : 19,
+  accessToken: process.env.MAPBOX_API_TOKEN
+})
+
 var opts = {
   terrainProvider,
   // imageryProvider : Cesium.createWorldImagery({
@@ -29,8 +35,11 @@ var opts = {
   //requestRenderMode : true,
   // Use full scene buffer (respecting pixel ratio) if this is false
   useBrowserRecommendedResolution: false,
-  terrainExaggeration: 1.5
+  // We have a bug in the tile bounding box calculation somewhere.
+  terrainExaggeration: 1.000001,
+  imageryProvider: satellite
 }
+
 
 Ion.defaultAccessToken = process.env.CESIUM_ACCESS_TOKEN;
 
