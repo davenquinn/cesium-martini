@@ -1,6 +1,6 @@
 # Cesium-Martini
 
-**High-performance raster elevation tiles for the CesiumJS virtual globe**
+**On-the-fly meshing of raster elevation tiles for the CesiumJS virtual globe**
 
 ![Cesium-Martini](/img/cesium-martini.png)
 
