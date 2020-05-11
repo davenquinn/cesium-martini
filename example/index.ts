@@ -37,7 +37,7 @@ var opts = {
   useBrowserRecommendedResolution: false,
   // We have a bug in the tile bounding box calculation somewhere.
   terrainExaggeration: 1.000001,
-  imageryProvider: satellite
+  imageryProvider: satellite,
 }
 
 
