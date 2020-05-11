@@ -4,7 +4,7 @@
 
 ![Cesium-Martini](/img/cesium-martini.png)
 
-This package contains an incomplete but functional implementation of Cesium's
+This package contains a preliminary but functional implementation of Cesium's
 [TerrainProvider](https://cesium.com/docs/cesiumjs-ref-doc/TerrainProvider.html)
 that uses MARTINI to
 transform [Terrain-RGB elevation tiles](https://blog.mapbox.com/global-elevation-data-6689f1d0ba65) into
@@ -85,21 +85,21 @@ of Cesium would provide some guidance here.
 
 ### Basic bugs and issues
 
-[ ] Right now, there is a bug with rendering tile bounding boxes when
-    `terrainExaggeration: 1` in the Cesium viewer
-    (setting `terrainExaggeration: 1.00001` works just fine). I'm uncertain why
-    this is occurring, but it is likely easily fixable.
-[ ] High-resolution `@2x` tiles can be requested, but an indexing error
-    prevents them from rendering properly. Additionally, the increased resolution
-    is not offset by requesting tiles at a lower zoom level, so using them is not
-    advisable until more broad changes are made to the renderer.
-[ ] Tiles at low zoom levels must to respond to the curvature of the Earth,
-    while their topographic range often yields only two triangles covering the entire
-    tile. For zoom levels less than 5, we currently fall back to a basic height field,
-    but we should ideally have a method that subdivides triangles to densify
-    the mesh.
-[ ] There is no formal testing framework to catch regressions.
-[ ] TypeScript types are discarded on compilation, not checked properly.
+- [ ] Right now, there is a bug with rendering tile bounding boxes when
+      `terrainExaggeration: 1` in the Cesium viewer
+      (setting `terrainExaggeration: 1.00001` works just fine). I'm uncertain why
+      this is occurring, but it is likely easily fixable.
+- [ ] High-resolution `@2x` tiles can be requested, but an indexing error
+      prevents them from rendering properly. Additionally, the increased resolution
+      is not offset by requesting tiles at a lower zoom level, so using them is not
+      advisable until more broad changes are made to the renderer.
+- [ ] Tiles at low zoom levels must to respond to the curvature of the Earth,
+      while their topographic range often yields only two triangles covering the entire
+      tile. For zoom levels less than 5, we currently fall back to a basic height field,
+      but we should ideally have a method that subdivides triangles to densify
+      the mesh.
+- [ ] There is no formal testing framework to catch regressions.
+- [ ] TypeScript types are discarded on compilation, not checked properly.
 
 ## Prior art and relevant examples
 
