@@ -2,7 +2,9 @@
 
 **High-performance raster elevation tiles for the CesiumJS virtual globe**
 
-This package contains an rough but functional implementation of Cesium's
+![Cesium-Martini](/img/cesium-martini.png)
+
+This package contains an incomplete but functional implementation of Cesium's
 [TerrainProvider](https://cesium.com/docs/cesiumjs-ref-doc/TerrainProvider.html)
 that uses MARTINI to
 transform [Terrain-RGB elevation tiles](https://blog.mapbox.com/global-elevation-data-6689f1d0ba65) into
@@ -11,8 +13,6 @@ for rendering in the [CesiumJS digital globe](https://cesium.com).
 It demonstrates a general technique applicable to all raster imagery
 (although the Terrain-RGB format is probably ideal for streaming elevation data).
 Fixes for performance and better control of rendering quality are in progress.
-
-![Cesium-Martini](/img/cesium-martini.png)
 
 ## Installation
 
