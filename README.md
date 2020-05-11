@@ -43,12 +43,12 @@ performance. See list of [known limitations](#current-known-limitations) below.
 ## Motivation
 
 The Cesium digital globe is a powerful platform for visualization of geospatial
-data in 3D. Cesium maintains a global elevation dataset as a pre-computed terrain mesh,
+data in 3D. Cesium maintains a global elevation dataset as a prebuilt terrain mesh,
 which caches the computationally-intensive step of meshing height-field data
 into a triangle irregular network (TIN). Unfortunately, this
 [quantized mesh](https://github.com/CesiumGS/quantized-mesh) format is relatively
-new, narrowly supported and tailored to Cesium itself. Additionally, supporting this
-new format for third-party elevation datasets requires maintenance of additional
+new, narrowly supported and tailored to Cesium itself. Going forward, supporting
+a TIN format for elevation datasets requires maintenance of significant single-purpose
 processing pipelines and storage resources.
 
 Mapbox maintains a multiscale global elevation dataset in their clever
@@ -67,7 +67,7 @@ MARTINI meshes based on right-triangulated irregular networks (RTIN, *Evans et a
 and is far quicker than the traditional TIN generation techniques.
 
 A speedy meshing algorithm allows this data-preparation step to be handled
-effectively in the browser after elevation tiles are loaded. Integrating this
+in the browser after elevation tiles are loaded. Integrating this
 toolchain into the Cesium digital globe enables the usage of Mapbox global
 data and other raster terrain layers (e.g. planetary and bathymetric data!),
 without adding overhead of TIN processing and storage.
