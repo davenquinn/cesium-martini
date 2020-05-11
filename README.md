@@ -4,15 +4,20 @@
 
 ![Cesium-Martini](/img/cesium-martini.png)
 
-This package contains a preliminary but functional implementation of Cesium's
+This package contains a preliminary but functional implementation of a Cesium
 [TerrainProvider](https://cesium.com/docs/cesiumjs-ref-doc/TerrainProvider.html)
-that uses MARTINI to
+that uses right-triangular irregular networks (RTIN) pioneered by
+[Mapbox's Martini](https://observablehq.com/@mourner/martin-real-time-rtin-terrain-mesh) to
 transform [Terrain-RGB elevation tiles](https://blog.mapbox.com/global-elevation-data-6689f1d0ba65) into
-[QuantizedMeshTerrainData](https://cesium.com/docs/cesiumjs-ref-doc/QuantizedMeshTerrainData.html),
+[quantized mesh terrain](https://github.com/CesiumGS/quantized-mesh),
 for rendering in the [CesiumJS digital globe](https://cesium.com).
-It demonstrates a general technique applicable to all raster imagery
-(although the Terrain-RGB format is probably ideal for streaming elevation data).
+The module provides a general technique applicable to all raster imagery
+(although the Terrain-RGB format is near-ideal for streaming elevation data).
 Fixes for performance and better control of rendering quality are in progress.
+
+This module was created to support our geologic map visualization work
+at [Macrostrat](https://macrostrat.org) and as a building block
+for future rich geoscience visualizations.
 
 ## Installation
 
@@ -26,7 +31,10 @@ npm install --save @macrostrat/cesium-martini
 
 After cloning this repository, you can build the module (using Rollup) with
 `npm run build`, or build and watch for changes with `npm run watch`.
-`npm run dev` bundles and runs a test application using Webpack.
+
+To run an example application, add `MAPBOX_API_TOKEN=<your-mapbox-token>` to a `.env` file.
+in the root of this repository. `npm run dev` bundles and runs the test
+application, which runs in the Webpack development server on `http://localhost:8080`.
 
 Contributions in the form of bug reports and pull requests are welcome.
 These can be to add functionality (e.g. optional normal-map generation) or for
@@ -89,25 +97,26 @@ of Cesium would provide some guidance here.
       `terrainExaggeration: 1` in the Cesium viewer
       (setting `terrainExaggeration: 1.00001` works just fine). I'm uncertain why
       this is occurring, but it is likely easily fixable.
-- [ ] High-resolution `@2x` tiles can be requested, but an indexing error
-      prevents them from rendering properly. Additionally, the increased resolution
-      is not offset by requesting tiles at a lower zoom level, so using them is not
-      advisable until more broad changes are made to the renderer.
+- [x] High-resolution `@2x` tiles can be requested, but an indexing error
+      prevents them from rendering properly.
+- [ ] The increased resolution of `@2x` tiles can be used, but doing so forces
+      the loading of high resolution overlay imagery across a wide area, so using them is not
+      advisable until broader changes are made to the renderer.
 - [ ] Tiles at low zoom levels must to respond to the curvature of the Earth,
       while their topographic range often yields only two triangles covering the entire
       tile. For zoom levels less than 5, we currently fall back to a basic height field,
       but we should ideally have a method that subdivides triangles to densify
       the mesh.
 - [ ] There is no formal testing framework to catch regressions.
-- [ ] TypeScript types are discarded on compilation, not checked properly.
+- [ ] TypeScript types are discarded on compilation rather than checked properly.
 
 ## Prior art and relevant examples
 
-- [Cesium quantized mesh specification](https://github.com/CesiumGS/quantized-mesh)
-- [Quantized mesh viewer](https://github.com/heremaps/quantized-mesh-viewer)
 - [Mapbox MARTINI](https://github.com/mapbox/martini)
 - [MARTINI algorithm explanation](https://observablehq.com/@mourner/martin-real-time-rtin-terrain-mesh)
 - [Evans et al., *Right-triangulated irregular networks*, 1998](https://www.cs.ubc.ca/~will/papers/rtin.pdf)
   ([journal link](https://link.springer.com/article/10.1007/s00453-001-0006-x))
+- [Cesium quantized mesh specification](https://github.com/CesiumGS/quantized-mesh)
+- [Quantized mesh viewer](https://github.com/heremaps/quantized-mesh-viewer)
 - [Cesium globe materials example](https://sandcastle.cesium.com/?src=Globe%20Materials.html)
 - [Cesium sky/atmosphere example](https://sandcastle.cesium.com/?src=Sky%20Atmosphere.html)

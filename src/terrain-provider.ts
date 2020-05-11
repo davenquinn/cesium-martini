@@ -10,7 +10,6 @@ import {
   BoundingSphere,
   QuantizedMeshTerrainData,
   HeightmapTerrainData,
-  CesiumTerrainProvider,
   // @ts-ignore
   OrientedBoundingBox,
   Credit
@@ -151,7 +150,6 @@ class MapboxTerrainProvider {
     const skirtHeight = err*5
 
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z)
-    //const tileNativeRect = this.tilingScheme.tileXYToNativeRectangle(x, y, z)
     const tileCenter = Cartographic.toCartesian(Rectangle.center(tileRect))
     const horizonOcclusionPoint = Ellipsoid.WGS84.transformPositionToScaledSpace(
       tileCenter
@@ -159,7 +157,7 @@ class MapboxTerrainProvider {
 
     let boundingSphere = new BoundingSphere(
       Cartesian3.ZERO,
-      // radius
+      // radius (seems to be max height of Earth terrain?)
       6379792.481506292
     )
 
@@ -183,8 +181,10 @@ class MapboxTerrainProvider {
       if (px == 0) westIndices.push(vertexIx)
       if (px == this.tileSize) eastIndices.push(vertexIx)
 
-      let xv = Math.min(px*this.tileSize/2,32767)
-      let yv = Math.min((this.tileSize-py)*this.tileSize/2,32767)
+      // This saves us from out-of-range values like 32768
+      const scalar = 32768/this.tileSize
+      let xv = px*scalar
+      let yv = (this.tileSize-py)*scalar
 
       xvals.push(xv)
       yvals.push(yv)
@@ -273,9 +273,10 @@ class MapboxTerrainProvider {
       )
 
     // Scalar to control overzooming
-    const scalar = 4
+    // also seems to control zooming for imagery layers
+    const scalar = this.highResolution ? 8 : 4
 
-    return levelZeroMaximumGeometricError / scalar / (1 << level)
+    return levelZeroMaximumGeometricError / (1 << level)
   }
 
   getTileDataAvailable(x, y, z) {

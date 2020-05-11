@@ -10,7 +10,8 @@ const terrainProvider = new TerrainProvider({
     url: IonResource.fromAssetId("1"),
     requestVertexNormals: false,
     requestWaterMask: false,
-    accessToken: process.env.MAPBOX_API_TOKEN
+    accessToken: process.env.MAPBOX_API_TOKEN,
+    highResolution: true
 });
 
 let satellite = new Cesium.MapboxImageryProvider({
@@ -40,8 +41,6 @@ var opts = {
   imageryProvider: satellite,
 }
 
-
-Ion.defaultAccessToken = process.env.CESIUM_ACCESS_TOKEN;
 
 const domID = "cesium-container"
 const g = document.createElement('div');
