@@ -68,9 +68,9 @@ and is far quicker than the traditional TIN generation techniques.
 
 A speedy meshing algorithm allows this data-preparation step to be handled
 effectively in the browser after elevation tiles are loaded. Integrating this
-toolchain into the Cesium digital globe will enables the usage of Mapbox global
+toolchain into the Cesium digital globe enables the usage of Mapbox global
 data and other raster terrain layers (e.g. planetary and bathymetric data!),
-without the overhead of additional processing and storage of TINs.
+without adding overhead of TIN processing and storage.
 
 ## Current limitations
 
@@ -84,10 +84,11 @@ meshes are generated at levels of detail that undersample the available structur
 in a terrain tile — levels of detail are calibrated to what Cesium needs to
 render visually pleasing output at a given zoom level.
 
-A smarter and more parsimonious solution would save triangles for tiles to
-prioritize generating meshes from lower-zoom tiles levels over requesting
-higher-resolution data. Done correctly, this could lead to an extremely
-data-efficient and adaptive terrain render, but some thought will have to
+A smarter and more parsimonious solution would use much lower zoom levels
+for terrain than imagery, using the full resolution of the dataset in
+mesh construction. Done correctly, this could lead to an extremely
+data-efficient and adaptive terrain render, but this seems to run somewhat
+counter to how Cesium internally manages levels of detail, and some thought will have to
 go into how to organize this. Ideally, someone familiar with the inner workings
 of Cesium would provide some guidance here.
 
