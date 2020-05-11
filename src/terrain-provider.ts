@@ -46,6 +46,19 @@ function mapboxTerrainToGrid(png: ndarray<number>) {
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
+enum ImageFormat {
+  WEBP = 'webp',
+  PNG = 'png',
+  PNGRAW = 'pngraw'
+}
+
+interface MapboxTerrainOpts {
+  format: ImageFormat
+  ellipsoid?: Ellipsoid
+  accessToken: string
+  highResolution?: boolean
+}
+
 class MapboxTerrainProvider {
   martini: any
   hasWaterMask = false
@@ -58,18 +71,25 @@ class MapboxTerrainProvider {
   tilingScheme: TerrainProvider["tilingScheme"]
   ellipsoid: Ellipsoid
   accessToken: string
+  format: ImageFormat
+  highResolution: boolean
+  tileSize: number = 256
 
   // @ts-ignore
-  constructor(opts) {
+  constructor(opts: MapboxTerrainOpts) {
 
     //this.martini = new Martini(257);
-    this.martini = new Martini(257)
+    this.highResolution = opts.highResolution ?? false
+    this.tileSize = this.highResolution ? 512 : 256
+
+    this.martini = new Martini(this.tileSize+1)
     this.ready = true
     this.readyPromise = Promise.resolve(true)
     this.accessToken = opts.accessToken
 
     this.errorEvent.addEventListener(console.log, this);
-    this.ellipsoid = Ellipsoid.WGS84
+    this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84
+    this.format = opts.format ?? ImageFormat.PNG
 
     this.tilingScheme = new WebMercatorTilingScheme({
       numberOfLevelZeroTilesX: 1,
@@ -92,9 +112,11 @@ class MapboxTerrainProvider {
     const mx = this.tilingScheme.getNumberOfYTilesAtLevel(z)
     const err = this.getLevelMaximumGeometricError(z)
 
+    const hires = this.highResolution ? '@2x' : ''
+
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
-    const url =  `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}.pngraw?access_token=${this.accessToken}`
+    const url =  `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`
 
     try {
       const pxArray = await this.getPixels(url)
@@ -154,15 +176,15 @@ class MapboxTerrainProvider {
       const vertexIx = ix
       const px = mesh.vertices[ix*2]
       const py = mesh.vertices[ix*2+1]
-      heightMeters.push(tile.terrain[py*257+px])
+      heightMeters.push(tile.terrain[py*(this.tileSize+1)+px])
 
       if (py == 0) northIndices.push(vertexIx)
-      if (py == 256) southIndices.push(vertexIx)
+      if (py == this.tileSize) southIndices.push(vertexIx)
       if (px == 0) westIndices.push(vertexIx)
-      if (px == 256) eastIndices.push(vertexIx)
+      if (px == this.tileSize) eastIndices.push(vertexIx)
 
-      let xv = Math.min(px*128,32767)
-      let yv = Math.min((256-py)*128,32767)
+      let xv = Math.min(px*this.tileSize/2,32767)
+      let yv = Math.min((this.tileSize-py)*this.tileSize/2,32767)
 
       xvals.push(xv)
       yvals.push(yv)
@@ -229,7 +251,7 @@ class MapboxTerrainProvider {
       southSkirtHeight : skirtHeight,
       eastSkirtHeight : skirtHeight,
       northSkirtHeight : skirtHeight,
-      //childTileMask: 15
+      childTileMask: 15
     })
   }
 
@@ -255,17 +277,6 @@ class MapboxTerrainProvider {
 
   getTileDataAvailable(x, y, z) {
     return z <= 15
-  }
-}
-
-class TestTerrainProvider extends CesiumTerrainProvider {
-  mapboxProvider = new MapboxTerrainProvider({})
-  async requestTileGeometry (x, y, z) {
-    const tile = await super.requestTileGeometry(x,y,z)
-    //const mapboxTile = await this.mapboxProvider.requestTileGeometry(x,y,z+1)
-    console.log(tile)//, mapboxTile)
-    //if (z > 10) debugger
-    return tile
   }
 }
 
