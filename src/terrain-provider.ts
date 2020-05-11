@@ -251,7 +251,7 @@ class MapboxTerrainProvider {
       southSkirtHeight : skirtHeight,
       eastSkirtHeight : skirtHeight,
       northSkirtHeight : skirtHeight,
-      //childTileMask: 15
+      childTileMask: 15
     })
   }
 
@@ -277,17 +277,6 @@ class MapboxTerrainProvider {
 
   getTileDataAvailable(x, y, z) {
     return z <= 15
-  }
-}
-
-class TestTerrainProvider extends CesiumTerrainProvider {
-  mapboxProvider = new MapboxTerrainProvider({})
-  async requestTileGeometry (x, y, z) {
-    const tile = await super.requestTileGeometry(x,y,z)
-    //const mapboxTile = await this.mapboxProvider.requestTileGeometry(x,y,z+1)
-    console.log(tile)//, mapboxTile)
-    //if (z > 10) debugger
-    return tile
   }
 }
 
