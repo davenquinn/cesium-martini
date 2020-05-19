@@ -132,6 +132,7 @@ class MapboxTerrainProvider {
 
       return await this.createQuantizedMeshData(x, y, z, tile, mesh)
     } catch(err) {
+      // We fall back to a heightmap
       const v = Math.max(32-4*z, 4)
       return this.emptyHeightmap(v)
     }
@@ -149,18 +150,6 @@ class MapboxTerrainProvider {
     const err = this.getLevelMaximumGeometricError(z)
     const skirtHeight = err*5
 
-    const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z)
-    const tileCenter = Cartographic.toCartesian(Rectangle.center(tileRect))
-    const horizonOcclusionPoint = Ellipsoid.WGS84.transformPositionToScaledSpace(
-      tileCenter
-    )
-
-    let boundingSphere = new BoundingSphere(
-      Cartesian3.ZERO,
-      // radius (seems to be max height of Earth terrain?)
-      6379792.481506292
-    )
-
     const xvals = []
     const yvals = []
     const heightMeters = []
@@ -168,7 +157,6 @@ class MapboxTerrainProvider {
     const southIndices = []
     const eastIndices = []
     const westIndices = []
-
 
     for (let ix = 0; ix < mesh.vertices.length/2; ix++) {
       const vertexIx = ix
@@ -198,31 +186,47 @@ class MapboxTerrainProvider {
       return (d-minHeight)*(32767/(maxHeight-minHeight))
     })
 
+
+    const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z)
+    const tileCenter = Cartographic.toCartesian(Rectangle.center(tileRect))
+    // Need to get maximum distance at zoom level
+    // tileRect.width is given in radians
+    // cos of half-tile-width allows us to use right-triangle relationship
+    const cosWidth = Math.cos(tileRect.width/2)// half tile width since our ref point is at the center
+    // scale max height to max ellipsoid radius
+    // ... it might be better to use the radius of the entire
+    const ellipsoidHeight = maxHeight/this.ellipsoid.maximumRadius
+    // cosine relationship to scale height in ellipsoid-relative coordinates
+    const occlusionHeight = (1+ellipsoidHeight)/cosWidth
+
+    const scaledCenter = Ellipsoid.WGS84.transformPositionToScaledSpace(tileCenter)
+    const horizonOcclusionPoint = new Cartesian3(scaledCenter.x, scaledCenter.y, occlusionHeight)
+
     let orientedBoundingBox = null
-
-
+    let boundingSphere: BoundingSphere
     if (tileRect.width < CMath.PI_OVER_TWO + CMath.EPSILON5) {
       // @ts-ignore
       orientedBoundingBox = OrientedBoundingBox.fromRectangle(tileRect, minHeight, maxHeight)
       // @ts-ignore
       boundingSphere = BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox)
+    } else {
+      // If our bounding rectangle spans >= 90º, we should use the entire globe as a bounding sphere.
+      boundingSphere = new BoundingSphere(
+        Cartesian3.ZERO,
+        // radius (seems to be max height of Earth terrain?)
+        6379792.481506292
+      )
     }
 
     const triangles = new Uint16Array(mesh.triangles)
 
     // @ts-ignore
 
-    if (z < 5) {
+    // If our tile has greater than ~1º size
+    if (tileRect.width > 0.02) {
       // We need to be able to specify a minimum number of triangles...
-      return this.emptyHeightmap(32)
+      return this.emptyHeightmap(64)
     }
-
-    let verts = []
-    xvals.forEach(function(x, i) {
-      verts.push(x)
-      verts.push(yvals[i])
-      verts.push(heights[i])
-    });
 
     const quantizedVertices = new Uint16Array(
       //verts
