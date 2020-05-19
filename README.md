@@ -1,6 +1,6 @@
 # Cesium-Martini
 
-**High-performance raster elevation tiles for the CesiumJS virtual globe**
+**On-the-fly meshing of raster elevation tiles for the CesiumJS virtual globe**
 
 ![Cesium-Martini](/img/cesium-martini.png)
 
@@ -43,12 +43,12 @@ performance. See list of [known limitations](#current-known-limitations) below.
 ## Motivation
 
 The Cesium digital globe is a powerful platform for visualization of geospatial
-data in 3D. Cesium maintains a global elevation dataset as a pre-computed terrain mesh,
+data in 3D. Cesium maintains a global elevation dataset as a prebuilt terrain mesh,
 which caches the computationally-intensive step of meshing height-field data
 into a triangle irregular network (TIN). Unfortunately, this
 [quantized mesh](https://github.com/CesiumGS/quantized-mesh) format is relatively
-new, narrowly supported and tailored to Cesium itself. Additionally, supporting this
-new format for third-party elevation datasets requires maintenance of additional
+new, narrowly supported and tailored to Cesium itself. Going forward, supporting
+a TIN format for elevation datasets requires maintenance of significant single-purpose
 processing pipelines and storage resources.
 
 Mapbox maintains a multiscale global elevation dataset in their clever
@@ -67,10 +67,10 @@ MARTINI meshes based on right-triangulated irregular networks (RTIN, *Evans et a
 and is far quicker than the traditional TIN generation techniques.
 
 A speedy meshing algorithm allows this data-preparation step to be handled
-effectively in the browser after elevation tiles are loaded. Integrating this
-toolchain into the Cesium digital globe will enables the usage of Mapbox global
+in the browser after elevation tiles are loaded. Integrating this
+toolchain into the Cesium digital globe enables the usage of Mapbox global
 data and other raster terrain layers (e.g. planetary and bathymetric data!),
-without the overhead of additional processing and storage of TINs.
+without adding overhead of TIN processing and storage.
 
 ## Current limitations
 
@@ -84,10 +84,11 @@ meshes are generated at levels of detail that undersample the available structur
 in a terrain tile — levels of detail are calibrated to what Cesium needs to
 render visually pleasing output at a given zoom level.
 
-A smarter and more parsimonious solution would save triangles for tiles to
-prioritize generating meshes from lower-zoom tiles levels over requesting
-higher-resolution data. Done correctly, this could lead to an extremely
-data-efficient and adaptive terrain render, but some thought will have to
+A smarter and more parsimonious solution would use much lower zoom levels
+for terrain than imagery, using the full resolution of the dataset in
+mesh construction. Done correctly, this could lead to an extremely
+data-efficient and adaptive terrain render, but this seems to run somewhat
+counter to how Cesium internally manages levels of detail, and some thought will have to
 go into how to organize this. Ideally, someone familiar with the inner workings
 of Cesium would provide some guidance here.
 
