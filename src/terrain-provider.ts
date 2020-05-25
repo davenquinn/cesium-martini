@@ -10,15 +10,17 @@ import {
   BoundingSphere,
   QuantizedMeshTerrainData,
   HeightmapTerrainData,
+  MapboxImageryProvider,
   // @ts-ignore
   OrientedBoundingBox,
   Credit
 } from "cesium"
-import ndarray from 'ndarray'
-import getPixels from 'get-pixels'
+const ndarray = require('ndarray')
 import Martini from '@mapbox/martini'
 
 function mapboxTerrainToGrid(png: ndarray<number>) {
+    // maybe we should do this on the GPU using REGL?
+    // but that would require GPU -> CPU -> GPU
     const gridSize = png.shape[0] + 1;
     const terrain = new Float32Array(gridSize * gridSize);
     const tileSize = png.shape[0];
@@ -73,12 +75,13 @@ class MapboxTerrainProvider {
   format: ImageFormat
   highResolution: boolean
   tileSize: number = 256
+  backend: MapboxImageryProvider
 
   // @ts-ignore
   constructor(opts: MapboxTerrainOpts) {
 
     //this.martini = new Martini(257);
-    this.highResolution = opts.highResolution ?? false
+    this.highResolution = false //opts.highResolution ?? false
     this.tileSize = this.highResolution ? 512 : 256
 
     this.martini = new Martini(this.tileSize+1)
@@ -90,6 +93,12 @@ class MapboxTerrainProvider {
     this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84
     this.format = opts.format ?? ImageFormat.PNG
 
+    this.backend = new MapboxImageryProvider({
+      mapId : 'mapbox.terrain-rgb',
+      maximumLevel : 15,
+      accessToken: process.env.MAPBOX_API_TOKEN
+    })
+
     this.tilingScheme = new WebMercatorTilingScheme({
       numberOfLevelZeroTilesX: 1,
       numberOfLevelZeroTilesY: 1,
@@ -98,16 +107,21 @@ class MapboxTerrainProvider {
 
   }
 
-  async getPixels(url: string, type=""): Promise<ndarray<number>> {
+  async getPixels(img: HTMLImageElement|HTMLCanvasElement) {
     return new Promise((resolve, reject)=>{
-      getPixels(url, type, (err, array)=>{
-        if (err != null) reject(err)
-        resolve(array)
-      })
+      //img.onload = ()=>{
+      const canvas = document.createElement('canvas')
+      canvas.width = img.width
+      canvas.height = img.height
+      const context = canvas.getContext('2d')
+      context.drawImage(img, 0, 0)
+      const pixels = context.getImageData(0, 0, img.width, img.height)
+      resolve(ndarray(new Uint8Array(pixels.data), [img.width, img.height, 4], [4, 4*img.width, 1], 0))
+      //}
     })
   }
 
-  async requestMapboxTile (x, y, z) {
+  async requestMapboxTile (x, y, z, request) {
     const mx = this.tilingScheme.getNumberOfYTilesAtLevel(z)
     const err = this.getLevelMaximumGeometricError(z)
 
@@ -118,8 +132,10 @@ class MapboxTerrainProvider {
     const url =  `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`
 
     try {
-      const pxArray = await this.getPixels(url)
+      const img = await this.backend.requestImage(x,y,z, request)
 
+      // Get image pixels
+      const pxArray = await this.getPixels(img)
       const terrain = mapboxTerrainToGrid(pxArray)
 
       // set up mesh generator for a certain 2^k+1 grid size
@@ -169,7 +185,6 @@ class MapboxTerrainProvider {
       if (px == 0) westIndices.push(vertexIx)
       if (px == this.tileSize) eastIndices.push(vertexIx)
 
-      // This saves us from out-of-range values like 32768
       const scalar = 32768/this.tileSize
       let xv = px*scalar
       let yv = (this.tileSize-py)*scalar
@@ -223,7 +238,7 @@ class MapboxTerrainProvider {
     // @ts-ignore
 
     // If our tile has greater than ~1º size
-    if (tileRect.width > 0.02) {
+    if (tileRect.width > 0.04 && triangle.length < 500) {
       // We need to be able to specify a minimum number of triangles...
       return this.emptyHeightmap(64)
     }
@@ -259,9 +274,9 @@ class MapboxTerrainProvider {
     })
   }
 
-  async requestTileGeometry (x, y, z) {
+  async requestTileGeometry (x, y, z, request) {
     try {
-      const mapboxTile = await this.requestMapboxTile(x,y,z)
+      const mapboxTile = await this.requestMapboxTile(x,y,z, request)
       return mapboxTile
     } catch(err) {
       console.log(err)
