@@ -96,7 +96,8 @@ class MapboxTerrainProvider {
     this.backend = new MapboxImageryProvider({
       mapId : 'mapbox.terrain-rgb',
       maximumLevel : 15,
-      accessToken: process.env.MAPBOX_API_TOKEN
+      accessToken: process.env.MAPBOX_API_TOKEN,
+      hasAlphaChannel: false
     })
 
     this.tilingScheme = new WebMercatorTilingScheme({
@@ -148,6 +149,7 @@ class MapboxTerrainProvider {
 
       return await this.createQuantizedMeshData(x, y, z, tile, mesh)
     } catch(err) {
+      console.log(err)
       // We fall back to a heightmap
       const v = Math.max(32-4*z, 4)
       return this.emptyHeightmap(v)
