@@ -30,7 +30,10 @@ function mapboxTerrainToGrid(png: ndarray<number>) {
             const r = png.get(x,yc,0);
             const g = png.get(x,yc,1);
             const b = png.get(x,yc,2);
-            terrain[y * gridSize + x] = (r * 256 * 256 + g * 256.0 + b) / 10.0 - 10000.0;
+            const tval = (r * 256.0 * 256.0 + g * 256.0 + b) / 10.0 - 10000.0;
+
+            // A sketchy shim to solve weird nodata values in Syrtis Major data
+            terrain[y * gridSize + x] = (tval < 2000 ? tval : -2000);
         }
     }
     // backfill right and bottom borders
@@ -49,6 +52,12 @@ enum ImageFormat {
   WEBP = 'webp',
   PNG = 'png',
   PNGRAW = 'pngraw'
+}
+
+interface TileCoordinates {
+  x: number
+  y: number
+  z: number
 }
 
 interface MapboxTerrainOpts {
@@ -73,9 +82,10 @@ class MapboxTerrainProvider {
   format: ImageFormat
   highResolution: boolean
   tileSize: number = 256
+  fillValue: number = 0
 
   // @ts-ignore
-  constructor(opts: MapboxTerrainOpts) {
+  constructor(opts: MapboxTerrainOpts = {}) {
 
     //this.martini = new Martini(257);
     this.highResolution = opts.highResolution ?? false
@@ -111,11 +121,9 @@ class MapboxTerrainProvider {
     const mx = this.tilingScheme.getNumberOfYTilesAtLevel(z)
     const err = this.getLevelMaximumGeometricError(z)
 
-    const hires = this.highResolution ? '@2x' : ''
-
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
-    const url =  `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`
+    const url =  this.buildTileURL({x,y,z})
 
     try {
       const pxArray = await this.getPixels(url)
@@ -140,10 +148,16 @@ class MapboxTerrainProvider {
 
   emptyHeightmap(samples) {
     return new HeightmapTerrainData({
-      buffer: new Uint8Array(Array(samples*samples).fill(0)),
+      buffer: new Uint8Array(Array(samples*samples).fill(this.fillValue)),
       width: samples,
       height: samples
     })
+  }
+
+  buildTileURL(tileCoords: TileCoordinates) {
+    const {z,x,y} = tileCoords
+    const hires = this.highResolution ? '@2x' : ''
+    return `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`
   }
 
   async createQuantizedMeshData (x, y, z, tile, mesh) {
@@ -180,12 +194,12 @@ class MapboxTerrainProvider {
 
     const maxHeight = Math.max.apply(this, heightMeters)
     const minHeight = Math.min.apply(this, heightMeters)
+    console.log(maxHeight, minHeight)
 
     const heights = heightMeters.map(d =>{
       if (maxHeight-minHeight < 1) return 0
       return (d-minHeight)*(32767/(maxHeight-minHeight))
     })
-
 
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z)
     const tileCenter = Cartographic.toCartesian(Rectangle.center(tileRect))
@@ -195,11 +209,11 @@ class MapboxTerrainProvider {
     const cosWidth = Math.cos(tileRect.width/2)// half tile width since our ref point is at the center
     // scale max height to max ellipsoid radius
     // ... it might be better to use the radius of the entire
-    const ellipsoidHeight = maxHeight/this.ellipsoid.maximumRadius
+    const ellipsoidHeight = maxHeight/this.ellipsoid.maximumRadius*3390/6371
     // cosine relationship to scale height in ellipsoid-relative coordinates
     const occlusionHeight = (1+ellipsoidHeight)/cosWidth
 
-    const scaledCenter = Ellipsoid.WGS84.transformPositionToScaledSpace(tileCenter)
+    const scaledCenter = Ellipsoid.WGS84.transformPositionToScaledSpace(tileCenter)*3390/6371
     const horizonOcclusionPoint = new Cartesian3(scaledCenter.x, scaledCenter.y, occlusionHeight)
 
     let orientedBoundingBox = null
@@ -214,7 +228,8 @@ class MapboxTerrainProvider {
       boundingSphere = new BoundingSphere(
         Cartesian3.ZERO,
         // radius (seems to be max height of Earth terrain?)
-        6379792.481506292
+        3400000 // MARS
+        //6379792.481506292 EARTH
       )
     }
 
@@ -223,7 +238,7 @@ class MapboxTerrainProvider {
     // @ts-ignore
 
     // If our tile has greater than ~1º size
-    if (tileRect.width > 0.02) {
+    if (tileRect.width > 0.1) {
       // We need to be able to specify a minimum number of triangles...
       return this.emptyHeightmap(64)
     }
