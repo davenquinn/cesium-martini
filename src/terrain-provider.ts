@@ -18,34 +18,6 @@ import ndarray from 'ndarray'
 import getPixels from 'get-pixels'
 import Martini from '@mapbox/martini'
 
-function mapboxTerrainToGrid(png: ndarray<number>) {
-    const gridSize = png.shape[0] + 1;
-    const terrain = new Float32Array(gridSize * gridSize);
-    const tileSize = png.shape[0];
-
-    // decode terrain values
-    for (let y = 0; y < tileSize; y++) {
-        for (let x = 0; x < tileSize; x++) {
-            const yc = y
-            const r = png.get(x,yc,0);
-            const g = png.get(x,yc,1);
-            const b = png.get(x,yc,2);
-            const tval = ((r * 256.0 + g ) * 256.0 + b) / 10.0 - 10000.0;
-
-            // A sketchy shim to solve weird nodata values in Syrtis Major data
-            terrain[y * gridSize + x] = (tval < 2000 ? tval : -2000);
-        }
-    }
-    // backfill right and bottom borders
-    for (let x = 0; x < gridSize - 1; x++) {
-      terrain[gridSize * (gridSize - 1) + x] = terrain[gridSize * (gridSize - 2) + x];
-    }
-    for (let y = 0; y < gridSize; y++) {
-      terrain[gridSize * y + gridSize - 1] = terrain[gridSize * y + gridSize - 2];
-    }
-    return terrain;
-}
-
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
 enum ImageFormat {
@@ -65,6 +37,7 @@ interface MapboxTerrainOpts {
   ellipsoid?: Ellipsoid
   accessToken: string
   highResolution?: boolean
+  fillValue?: number
 }
 
 class MapboxTerrainProvider {
@@ -90,6 +63,7 @@ class MapboxTerrainProvider {
     //this.martini = new Martini(257);
     this.highResolution = opts.highResolution ?? false
     this.tileSize = this.highResolution ? 512 : 256
+    this.fillValue = opts.fillValue ?? 0
 
     this.martini = new Martini(this.tileSize+1)
     this.ready = true
@@ -128,7 +102,7 @@ class MapboxTerrainProvider {
     try {
       const pxArray = await this.getPixels(url)
 
-      const terrain = mapboxTerrainToGrid(pxArray)
+      const terrain = this.mapboxTerrainToGrid(pxArray)
 
       // set up mesh generator for a certain 2^k+1 grid size
       // generate RTIN hierarchy from terrain data (an array of size^2 length)
@@ -158,6 +132,37 @@ class MapboxTerrainProvider {
     const {z,x,y} = tileCoords
     const hires = this.highResolution ? '@2x' : ''
     return `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`
+  }
+
+  preprocessHeight(x: number, y: number, height: number): number {
+    return height
+  }
+
+  mapboxTerrainToGrid(png: ndarray<number>): Float32Array {
+      const gridSize = png.shape[0] + 1;
+      const terrain = new Float32Array(gridSize * gridSize);
+      const tileSize = png.shape[0];
+
+      // decode terrain values
+      for (let y = 0; y < tileSize; y++) {
+          for (let x = 0; x < tileSize; x++) {
+              const yc = y
+              const r = png.get(x,yc,0);
+              const g = png.get(x,yc,1);
+              const b = png.get(x,yc,2);
+              const height = ((r * 256.0 + g ) * 256.0 + b) / 10.0 - 10000.0;
+              // A sketchy shim to solve weird nodata values in Syrtis Major data
+              terrain[y * gridSize + x] = this.preprocessHeight(x , y, height)
+          }
+      }
+      // backfill right and bottom borders
+      for (let x = 0; x < gridSize - 1; x++) {
+        terrain[gridSize * (gridSize - 1) + x] = terrain[gridSize * (gridSize - 2) + x];
+      }
+      for (let y = 0; y < gridSize; y++) {
+        terrain[gridSize * y + gridSize - 1] = terrain[gridSize * y + gridSize - 2];
+      }
+      return terrain;
   }
 
   async createQuantizedMeshData (x, y, z, tile, mesh) {
