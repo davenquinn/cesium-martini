@@ -30,7 +30,7 @@ function mapboxTerrainToGrid(png: ndarray<number>) {
             const r = png.get(x,yc,0);
             const g = png.get(x,yc,1);
             const b = png.get(x,yc,2);
-            const tval = (r * 256.0 * 256.0 + g * 256.0 + b) / 10.0 - 10000.0;
+            const tval = ((r * 256.0 + g ) * 256.0 + b) / 10.0 - 10000.0;
 
             // A sketchy shim to solve weird nodata values in Syrtis Major data
             terrain[y * gridSize + x] = (tval < 2000 ? tval : -2000);
