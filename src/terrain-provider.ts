@@ -56,6 +56,10 @@ class MapboxTerrainProvider {
   highResolution: boolean
   tileSize: number = 256
   fillValue: number = 0
+  meshErrorScalar: number = 1
+
+  // A quick hack to getting things working on Mars
+  RADIUS_SCALAR: number = 1
 
   // @ts-ignore
   constructor(opts: MapboxTerrainOpts = {}) {
@@ -109,8 +113,8 @@ class MapboxTerrainProvider {
       const tile = this.martini.createTile(terrain);
 
       // get a mesh (vertices and triangles indices) for a 10m error
-      console.log(`Error level: ${err}`)
-      const mesh = tile.getMesh(err);
+      //console.log(`Error level: ${err}`)
+      const mesh = tile.getMesh(err*this.meshErrorScalar);
 
       return await this.createQuantizedMeshData(x, y, z, tile, mesh)
     } catch(err) {
@@ -199,7 +203,6 @@ class MapboxTerrainProvider {
 
     const maxHeight = Math.max.apply(this, heightMeters)
     const minHeight = Math.min.apply(this, heightMeters)
-    console.log(maxHeight, minHeight)
 
     const heights = heightMeters.map(d =>{
       if (maxHeight-minHeight < 1) return 0
@@ -214,11 +217,11 @@ class MapboxTerrainProvider {
     const cosWidth = Math.cos(tileRect.width/2)// half tile width since our ref point is at the center
     // scale max height to max ellipsoid radius
     // ... it might be better to use the radius of the entire
-    const ellipsoidHeight = maxHeight/this.ellipsoid.maximumRadius*3390/6371
+    const ellipsoidHeight = maxHeight/this.ellipsoid.maximumRadius*this.RADIUS_SCALAR
     // cosine relationship to scale height in ellipsoid-relative coordinates
     const occlusionHeight = (1+ellipsoidHeight)/cosWidth
 
-    const scaledCenter = Ellipsoid.WGS84.transformPositionToScaledSpace(tileCenter)*3390/6371
+    const scaledCenter = Ellipsoid.WGS84.transformPositionToScaledSpace(tileCenter)*this.RADIUS_SCALAR
     const horizonOcclusionPoint = new Cartesian3(scaledCenter.x, scaledCenter.y, occlusionHeight)
 
     let orientedBoundingBox = null
@@ -233,8 +236,7 @@ class MapboxTerrainProvider {
       boundingSphere = new BoundingSphere(
         Cartesian3.ZERO,
         // radius (seems to be max height of Earth terrain?)
-        3400000 // MARS
-        //6379792.481506292 EARTH
+        6379792.481506292 * this.RADIUS_SCALAR
       )
     }
 
