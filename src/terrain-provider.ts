@@ -103,6 +103,7 @@ class MapboxTerrainProvider {
     // 12/2215/2293 @2x
     const url =  this.buildTileURL({x,y,z})
 
+
     try {
       const pxArray = await this.getPixels(url)
 
@@ -150,10 +151,9 @@ class MapboxTerrainProvider {
       // decode terrain values
       for (let y = 0; y < tileSize; y++) {
           for (let x = 0; x < tileSize; x++) {
-              const yc = y
-              const r = png.get(x,yc,0);
-              const g = png.get(x,yc,1);
-              const b = png.get(x,yc,2);
+              const r = png.get(x,y,0);
+              const g = png.get(x,y,1);
+              const b = png.get(x,y,2);
               const height = ((r * 256.0 + g ) * 256.0 + b) / 10.0 - 10000.0;
               // A sketchy shim to solve weird nodata values in Syrtis Major data
               terrain[y * gridSize + x] = this.preprocessHeight(x , y, height)
@@ -281,7 +281,7 @@ class MapboxTerrainProvider {
     })
   }
 
-  async requestTileGeometry (x, y, z) {
+  async requestTileGeometry (x, y, z, request) {
     try {
       const mapboxTile = await this.requestMapboxTile(x,y,z)
       return mapboxTile
