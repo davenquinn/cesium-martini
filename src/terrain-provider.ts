@@ -82,7 +82,7 @@ class MapboxTerrainProvider {
   // @ts-ignore
   constructor(opts: MapboxTerrainOpts) {
     //this.martini = new Martini(257);
-    this.highResolution = false; //opts.highResolution ?? false
+    this.highResolution = true; //opts.highResolution ?? false
     this.tileSize = this.highResolution ? 512 : 256;
 
     this.martini = new Martini(this.tileSize + 1);
@@ -92,13 +92,14 @@ class MapboxTerrainProvider {
 
     this.errorEvent.addEventListener(console.log, this);
     this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84;
-    this.format = opts.format ?? ImageFormat.PNG;
+    this.format = opts.format ?? ImageFormat.WEBP;
 
     this.backend = new MapboxImageryProvider({
       mapId: "mapbox.terrain-rgb",
       maximumLevel: 15,
       accessToken: process.env.MAPBOX_API_TOKEN,
       hasAlphaChannel: false,
+      format: "@2x.webp",
     });
 
     this.tilingScheme = new WebMercatorTilingScheme({
