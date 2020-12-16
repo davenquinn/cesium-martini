@@ -20,7 +20,8 @@
     "@types/ndarray": "^1.0.7",
     "axios": "^0.19.2",
     "cesium": "^1.68.0",
-    "get-pixels": "^3.3.2"
+    "get-pixels": "^3.3.2",
+    "rollup-plugin-web-worker-loader": "^1.5.0"
   },
   "devDependencies": {
     "copy-webpack-plugin": "^5.1.1",

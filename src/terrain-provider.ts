@@ -14,38 +14,11 @@ import {
   // @ts-ignore
   OrientedBoundingBox,
   Credit,
+  TaskProcessor,
 } from "cesium";
 const ndarray = require("ndarray");
 import Martini from "@mapbox/martini";
-
-function mapboxTerrainToGrid(png: ndarray<number>) {
-  // maybe we should do this on the GPU using REGL?
-  // but that would require GPU -> CPU -> GPU
-  const gridSize = png.shape[0] + 1;
-  const terrain = new Float32Array(gridSize * gridSize);
-  const tileSize = png.shape[0];
-
-  // decode terrain values
-  for (let y = 0; y < tileSize; y++) {
-    for (let x = 0; x < tileSize; x++) {
-      const yc = y;
-      const r = png.get(x, yc, 0);
-      const g = png.get(x, yc, 1);
-      const b = png.get(x, yc, 2);
-      terrain[y * gridSize + x] =
-        (r * 256 * 256 + g * 256.0 + b) / 10.0 - 10000.0;
-    }
-  }
-  // backfill right and bottom borders
-  for (let x = 0; x < gridSize - 1; x++) {
-    terrain[gridSize * (gridSize - 1) + x] =
-      terrain[gridSize * (gridSize - 2) + x];
-  }
-  for (let y = 0; y < gridSize; y++) {
-    terrain[gridSize * y + gridSize - 1] = terrain[gridSize * y + gridSize - 2];
-  }
-  return terrain;
-}
+import TerrainWorker from "web-worker:./worker";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
@@ -60,6 +33,15 @@ interface MapboxTerrainOpts {
   ellipsoid?: Ellipsoid;
   accessToken: string;
   highResolution?: boolean;
+  workerURL: string;
+}
+
+class WorkerFarm extends TaskProcessor {
+  _worker: Worker;
+  constructor(maximumActiveTasks: number = 5) {
+    super("terrain-worker", maximumActiveTasks);
+    this._worker = new TerrainWorker();
+  }
 }
 
 class MapboxTerrainProvider {
@@ -78,6 +60,7 @@ class MapboxTerrainProvider {
   highResolution: boolean;
   tileSize: number = 256;
   backend: MapboxImageryProvider;
+  workerFarm: WorkerFarm;
 
   // @ts-ignore
   constructor(opts: MapboxTerrainOpts) {
@@ -93,6 +76,7 @@ class MapboxTerrainProvider {
     this.errorEvent.addEventListener(console.log, this);
     this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84;
     this.format = opts.format ?? ImageFormat.WEBP;
+    this.workerFarm = new WorkerFarm();
 
     this.backend = new MapboxImageryProvider({
       mapId: "mapbox.terrain-rgb",
@@ -140,8 +124,12 @@ class MapboxTerrainProvider {
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
 
+    const img = await this.backend.requestImage(x, y, z, request);
+    const bmp = await createImageBitmap(img);
+    const res = await this.workerFarm.scheduleTask({ imageData: bmp });
+    return new QuantizedMeshTerrainData(res);
+
     try {
-      const img = await this.backend.requestImage(x, y, z, request);
       // sometimes, the request returns null
       //if (img == null) return;
 
