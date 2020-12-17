@@ -1,4 +1,3 @@
-import createTaskProcessorWorker from "cesium/Source/WorkersES6/createTaskProcessorWorker.js";
 import {
   mapboxTerrainToGrid,
   createQuantizedMeshData,
@@ -6,6 +5,7 @@ import {
 } from "./worker-util";
 import ndarray from "ndarray";
 import Martini from "@mapbox/martini";
+import "regenerator-runtime";
 // https://github.com/CesiumGS/cesium/blob/1.76/Source/WorkersES6/createVerticesFromQuantizedTerrainMesh.js
 
 export interface TerrainWorkerInput extends QuantizedMeshOptions {
@@ -28,24 +28,30 @@ function decodeTerrain(
     0
   );
 
-  try {
-    const martini = new Martini(tileSize + 1);
+  const martini = new Martini(tileSize + 1);
 
-    const terrain = mapboxTerrainToGrid(pixels);
+  const terrain = mapboxTerrainToGrid(pixels);
 
-    const tile = martini.createTile(terrain);
+  const tile = martini.createTile(terrain);
 
-    // get a mesh (vertices and triangles indices) for a 10m error
-    console.log(`Error level: ${errorLevel}`);
-    const mesh = tile.getMesh(errorLevel);
-    console.log(mesh);
+  // get a mesh (vertices and triangles indices) for a 10m error
+  console.log(`Error level: ${errorLevel}`);
+  const mesh = tile.getMesh(errorLevel);
 
-    return createQuantizedMeshData(tile, mesh, tileSize);
-  } catch {
-    return null;
-  }
+  return createQuantizedMeshData(tile, mesh, tileSize);
 }
 
-export { decodeTerrain };
+//export { decodeTerrain };
 
-export default createTaskProcessorWorker(decodeTerrain);
+self.onmessage = function(msg) {
+  const { id, payload } = msg.data;
+  try {
+    const res = decodeTerrain(payload);
+    self.postMessage({ id, payload: res }, [
+      res.indices.buffer,
+      res.quantizedVertices.buffer,
+    ]);
+  } catch (err) {
+    self.postMessage({ id, err: err.toString() });
+  }
+};

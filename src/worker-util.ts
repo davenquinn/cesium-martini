@@ -37,7 +37,7 @@ export interface QuantizedMeshOptions {
   ellipsoidRadius: number;
 }
 
-async function createQuantizedMeshData(tile, mesh, tileSize = 256) {
+function createQuantizedMeshData(tile, mesh, tileSize = 256) {
   const xvals = [];
   const yvals = [];
   const heightMeters = [];
@@ -81,6 +81,7 @@ async function createQuantizedMeshData(tile, mesh, tileSize = 256) {
 
   // SE NW NE
   // NE NW SE
+  console.log(triangles, quantizedVertices);
 
   return {
     minimumHeight: minHeight,

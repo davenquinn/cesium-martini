@@ -18,8 +18,8 @@ import {
 } from "cesium";
 const ndarray = require("ndarray");
 import Martini from "@mapbox/martini";
-import TerrainWorker from "web-worker:./worker";
-import { TerrainWorkerInput, decodeTerrain } from "./worker";
+import WorkerFarm from "./worker-farm";
+import { TerrainWorkerInput } from "./worker";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
@@ -35,14 +35,6 @@ interface MapboxTerrainOpts {
   accessToken: string;
   highResolution?: boolean;
   workerURL: string;
-}
-
-class WorkerFarm extends TaskProcessor {
-  _worker: Worker;
-  constructor(maximumActiveTasks: number = 5) {
-    super("terrain-worker", maximumActiveTasks);
-    this._worker = new TerrainWorker();
-  }
 }
 
 class MapboxTerrainProvider {
@@ -94,7 +86,9 @@ class MapboxTerrainProvider {
     });
   }
 
-  async getPixels(img: HTMLImageElement | HTMLCanvasElement) {
+  async getPixels(
+    img: HTMLImageElement | HTMLCanvasElement
+  ): Promise<ImageData> {
     return new Promise((resolve, reject) => {
       //img.onload = ()=>{
       const canvas = document.createElement("canvas");
@@ -103,7 +97,7 @@ class MapboxTerrainProvider {
       const context = canvas.getContext("2d");
       context.drawImage(img, 0, 0);
       const pixels = context.getImageData(0, 0, img.width, img.height);
-      resolve(pixels.data);
+      resolve(pixels);
       //}
     });
   }
@@ -113,15 +107,19 @@ class MapboxTerrainProvider {
     const err = this.getLevelMaximumGeometricError(z);
 
     const hires = this.highResolution ? "@2x" : "";
+    if (x == 0 && y == 0 && z == 0) {
+      return this.emptyHeightmap(64);
+    }
 
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
     try {
       const img = await this.backend.requestImage(x, y, z, request);
-      if (img == null) return;
+      if (img == null) return undefined;
 
-      const pixelData = await this.getPixels(img);
+      const px = await this.getPixels(img);
+      const pixelData = px.data;
 
       const params: TerrainWorkerInput = {
         imageData: pixelData,
@@ -133,13 +131,15 @@ class MapboxTerrainProvider {
         tileSize: this.tileSize,
       };
 
-      console.log(params);
-      //const res = await this.workerFarm.scheduleTask(params);
-      const res = await decodeTerrain(params, []);
-      if (res == null) return;
+      const res = await this.workerFarm.scheduleTask(params, [
+        pixelData.buffer,
+      ]);
+      //const res = await decodeTerrain(params, []);
+      if (res == null) return undefined;
       return this.createQuantizedMeshData(x, y, z, res);
     } catch (err) {
-      console.log(err);
+      // console.log(err);
+      // return undefined
       const v = Math.max(32 - 4 * z, 4);
       return this.emptyHeightmap(v);
     }
@@ -265,7 +265,7 @@ class MapboxTerrainProvider {
 
     // Scalar to control overzooming
     // also seems to control zooming for imagery layers
-    const scalar = this.highResolution ? 8 : 4;
+    const scalar = this.highResolution ? 2 : 4;
 
     return levelZeroMaximumGeometricError / scalar / (1 << level);
   }
