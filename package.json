@@ -24,6 +24,7 @@
     "rollup-plugin-web-worker-loader": "^1.5.0"
   },
   "devDependencies": {
+    "@rollup/plugin-commonjs": "^17.0.0",
     "copy-webpack-plugin": "^5.1.1",
     "css-loader": "^3.5.2",
     "dotenv-webpack": "^1.7.0",
