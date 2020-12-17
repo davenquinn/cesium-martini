@@ -15,6 +15,7 @@ export default {
     file: pkg.main,
     format: "cjs",
     sourcemap: true,
+    exports: "auto",
   },
   external: Object.keys(deps),
   plugins: [
@@ -25,6 +26,8 @@ export default {
     }),
     webWorkerLoader({
       targetPlatform: "browser",
+      extensions: ["ts", "js"],
+      external: [],
     }),
   ],
 };

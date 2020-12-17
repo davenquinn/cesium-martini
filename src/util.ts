@@ -6,6 +6,7 @@ import {
   Cartesian3,
   BoundingSphere,
   WebMercatorTilingScheme,
+  HeightmapTerrainData,
   // @ts-ignore
   OrientedBoundingBox,
 } from "cesium";
@@ -60,10 +61,18 @@ function mapboxTerrainToGrid(png: ndarray<number>) {
   return terrain;
 }
 
-interface QuantizedMeshOptions {
+export interface QuantizedMeshOptions {
   errorLevel: number;
   tileSize: number;
-  tileRect: any;
+  ellipsoidRadius: number;
+}
+
+function emptyHeightmap(samples) {
+  return new HeightmapTerrainData({
+    buffer: new Uint8Array(Array(samples * samples).fill(0)),
+    width: samples,
+    height: samples,
+  });
 }
 
 async function createQuantizedMeshData(
@@ -74,7 +83,7 @@ async function createQuantizedMeshData(
   mesh,
   opts: QuantizedMeshOptions
 ) {
-  const { errorLevel: err, tileSize } = opts;
+  const { errorLevel: err, tileSize, ellipsoidRadius } = opts;
   const skirtHeight = err * 5;
 
   const xvals = [];
@@ -89,16 +98,16 @@ async function createQuantizedMeshData(
     const vertexIx = ix;
     const px = mesh.vertices[ix * 2];
     const py = mesh.vertices[ix * 2 + 1];
-    heightMeters.push(tile.terrain[py * (this.tileSize + 1) + px]);
+    heightMeters.push(tile.terrain[py * (tileSize + 1) + px]);
 
     if (py == 0) northIndices.push(vertexIx);
-    if (py == this.tileSize) southIndices.push(vertexIx);
+    if (py == tileSize) southIndices.push(vertexIx);
     if (px == 0) westIndices.push(vertexIx);
-    if (px == this.tileSize) eastIndices.push(vertexIx);
+    if (px == tileSize) eastIndices.push(vertexIx);
 
-    const scalar = 32768 / this.tileSize;
+    const scalar = 32768 / tileSize;
     let xv = px * scalar;
-    let yv = (this.tileSize - py) * scalar;
+    let yv = (tileSize - py) * scalar;
 
     xvals.push(xv);
     yvals.push(yv);
@@ -112,7 +121,7 @@ async function createQuantizedMeshData(
     return (d - minHeight) * (32767 / (maxHeight - minHeight));
   });
 
-  const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
+  const tileRect = tilingScheme.tileXYToRectangle(x, y, z);
   const tileCenter = Cartographic.toCartesian(Rectangle.center(tileRect));
   // Need to get maximum distance at zoom level
   // tileRect.width is given in radians
@@ -120,9 +129,9 @@ async function createQuantizedMeshData(
   const cosWidth = Math.cos(tileRect.width / 2); // half tile width since our ref point is at the center
   // scale max height to max ellipsoid radius
   // ... it might be better to use the radius of the entire
-  const ellipsoidHeight = maxHeight / this.ellipsoid.maximumRadius;
+  const ellipsoidRelativeHeight = maxHeight / ellipsoidRadius;
   // cosine relationship to scale height in ellipsoid-relative coordinates
-  const occlusionHeight = (1 + ellipsoidHeight) / cosWidth;
+  const occlusionHeight = (1 + ellipsoidRelativeHeight) / cosWidth;
 
   const scaledCenter = Ellipsoid.WGS84.transformPositionToScaledSpace(
     tileCenter
@@ -162,7 +171,7 @@ async function createQuantizedMeshData(
   // If our tile has greater than ~1º size
   if (tileRect.width > 0.04 && triangles.length < 500) {
     // We need to be able to specify a minimum number of triangles...
-    return this.emptyHeightmap(64);
+    return emptyHeightmap(64);
   }
 
   const quantizedVertices = new Uint16Array(
