@@ -36,6 +36,11 @@ interface MapboxTerrainOpts {
   workerURL: string;
 }
 
+interface CanvasRef {
+  canvas: HTMLCanvasElement;
+  context: CanvasRenderingContext2D;
+}
+
 class MapboxTerrainProvider {
   martini: any;
   hasWaterMask = false;
@@ -55,12 +60,14 @@ class MapboxTerrainProvider {
   workerFarm: WorkerFarm;
   inProgressWorkers: number = 0;
   useWorkers: boolean = true;
+  contextQueue: CanvasRef[];
 
   // @ts-ignore
   constructor(opts: MapboxTerrainOpts) {
     //this.martini = new Martini(257);
     this.highResolution = true; //opts.highResolution ?? false
     this.tileSize = this.highResolution ? 512 : 256;
+    this.contextQueue = [];
 
     this.martini = new Martini(this.tileSize + 1);
     this.ready = true;
@@ -87,27 +94,33 @@ class MapboxTerrainProvider {
     });
   }
 
-  async getPixels(
-    img: HTMLImageElement | HTMLCanvasElement
-  ): Promise<ImageData> {
-    return new Promise((resolve, reject) => {
-      //img.onload = ()=>{
-      try {
-        const canvas = document.createElement("canvas");
-        canvas.width = this.tileSize;
-        canvas.height = this.tileSize;
-        const context = canvas.getContext("2d");
-        //context.scale(1, -1);
-        // Chrome appears to vertically flip the image for reasons that are unclear
-        // We can make it work in Chrome by drawing the image upside-down at this step.
-        context.drawImage(img, 0, 0, this.tileSize, this.tileSize);
-        const pixels = context.getImageData(0, 0, this.tileSize, this.tileSize);
-        resolve(pixels);
-      } catch (err) {
-        reject(err);
-      }
-      //}
-    });
+  getCanvas(): CanvasRef {
+    let ctx = this.contextQueue.pop();
+    if (ctx == null) {
+      console.log("Creating new canvas element");
+      const canvas = document.createElement("canvas");
+      canvas.width = this.tileSize;
+      canvas.height = this.tileSize;
+      const context = canvas.getContext("2d");
+      ctx = {
+        canvas,
+        context,
+      };
+    }
+    return ctx;
+  }
+
+  getPixels(img: HTMLImageElement | HTMLCanvasElement): ImageData {
+    const canvasRef = this.getCanvas();
+    const { context } = canvasRef;
+    //context.scale(1, -1);
+    // Chrome appears to vertically flip the image for reasons that are unclear
+    // We can make it work in Chrome by drawing the image upside-down at this step.
+    context.drawImage(img, 0, 0, this.tileSize, this.tileSize);
+    const pixels = context.getImageData(0, 0, this.tileSize, this.tileSize);
+    context.clearRect(0, 0, this.tileSize, this.tileSize);
+    this.contextQueue.push(canvasRef);
+    return pixels;
   }
 
   requestTileGeometry(x, y, z, request) {
@@ -135,7 +148,7 @@ class MapboxTerrainProvider {
     const hires = this.highResolution ? "@2x" : "";
 
     try {
-      const px = await this.getPixels(image);
+      const px = this.getPixels(image);
       const pixelData = px.data;
 
       const params: TerrainWorkerInput = {
