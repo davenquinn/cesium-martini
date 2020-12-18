@@ -54,6 +54,7 @@ class MapboxTerrainProvider {
   tileSize: number = 256;
   backend: MapboxImageryProvider;
   workerFarm: WorkerFarm;
+  inProgressWorkers: number = 0;
 
   // @ts-ignore
   constructor(opts: MapboxTerrainOpts) {
@@ -102,23 +103,33 @@ class MapboxTerrainProvider {
     });
   }
 
-  async requestMapboxTile(x, y, z, request) {
+  requestTileGeometry(x, y, z, request) {
+    const imgPromise = this.backend.requestImage(x, y, z, request);
+    if (imgPromise == null || this.inProgressWorkers > 5) return undefined;
+    return imgPromise.then(async (imgData) => {
+      this.inProgressWorkers += 1;
+      const res = await this.processTile(x, y, z, imgData);
+      this.inProgressWorkers -= 1;
+      return res;
+    });
+  }
+
+  async processTile(
+    x: number,
+    y: number,
+    z: number,
+    image: HTMLImageElement | HTMLCanvasElement
+  ) {
+    // Something wonky about our tiling scheme, perhaps
+    // 12/2215/2293 @2x
+    //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
     const mx = this.tilingScheme.getNumberOfYTilesAtLevel(z);
     const err = this.getLevelMaximumGeometricError(z);
 
     const hires = this.highResolution ? "@2x" : "";
-    if (x == 0 && y == 0 && z == 0) {
-      return this.emptyHeightmap(64);
-    }
 
-    // Something wonky about our tiling scheme, perhaps
-    // 12/2215/2293 @2x
-    //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
     try {
-      const img = await this.backend.requestImage(x, y, z, request);
-      if (img == null) return undefined;
-
-      const px = await this.getPixels(img);
+      const px = await this.getPixels(image);
       const pixelData = px.data;
 
       const params: TerrainWorkerInput = {
@@ -135,7 +146,6 @@ class MapboxTerrainProvider {
         pixelData.buffer,
       ]);
       //const res = await decodeTerrain(params, []);
-      if (res == null) return undefined;
       return this.createQuantizedMeshData(x, y, z, res);
     } catch (err) {
       // console.log(err);
@@ -239,15 +249,6 @@ class MapboxTerrainProvider {
     });
   }
 
-  async requestTileGeometry(x, y, z, request) {
-    try {
-      const mapboxTile = await this.requestMapboxTile(x, y, z, request);
-      return mapboxTile;
-    } catch (err) {
-      console.log(err);
-    }
-  }
-
   emptyHeightmap(samples) {
     return new HeightmapTerrainData({
       buffer: new Uint8Array(Array(samples * samples).fill(0)),
@@ -265,7 +266,7 @@ class MapboxTerrainProvider {
 
     // Scalar to control overzooming
     // also seems to control zooming for imagery layers
-    const scalar = this.highResolution ? 2 : 4;
+    const scalar = this.highResolution ? 4 : 2;
 
     return levelZeroMaximumGeometricError / scalar / (1 << level);
   }
