@@ -14,12 +14,11 @@ import {
   // @ts-ignore
   OrientedBoundingBox,
   Credit,
-  TaskProcessor,
 } from "cesium";
 const ndarray = require("ndarray");
 import Martini from "@mapbox/martini";
 import WorkerFarm from "./worker-farm";
-import { TerrainWorkerInput } from "./worker";
+import { TerrainWorkerInput, decodeTerrain } from "./worker";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
@@ -55,6 +54,7 @@ class MapboxTerrainProvider {
   backend: MapboxImageryProvider;
   workerFarm: WorkerFarm;
   inProgressWorkers: number = 0;
+  useWorkers: boolean = true;
 
   // @ts-ignore
   constructor(opts: MapboxTerrainOpts) {
@@ -92,13 +92,20 @@ class MapboxTerrainProvider {
   ): Promise<ImageData> {
     return new Promise((resolve, reject) => {
       //img.onload = ()=>{
-      const canvas = document.createElement("canvas");
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const context = canvas.getContext("2d");
-      context.drawImage(img, 0, 0);
-      const pixels = context.getImageData(0, 0, img.width, img.height);
-      resolve(pixels);
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = this.tileSize;
+        canvas.height = this.tileSize;
+        const context = canvas.getContext("2d");
+        //context.scale(1, -1);
+        // Chrome appears to vertically flip the image for reasons that are unclear
+        // We can make it work in Chrome by drawing the image upside-down at this step.
+        context.drawImage(img, 0, 0, this.tileSize, this.tileSize);
+        const pixels = context.getImageData(0, 0, this.tileSize, this.tileSize);
+        resolve(pixels);
+      } catch (err) {
+        reject(err);
+      }
       //}
     });
   }
@@ -123,7 +130,6 @@ class MapboxTerrainProvider {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
-    const mx = this.tilingScheme.getNumberOfYTilesAtLevel(z);
     const err = this.getLevelMaximumGeometricError(z);
 
     const hires = this.highResolution ? "@2x" : "";
@@ -137,15 +143,17 @@ class MapboxTerrainProvider {
         x,
         y,
         z,
-        errorLevel: this.getLevelMaximumGeometricError(z),
+        errorLevel: err,
         ellipsoidRadius: this.ellipsoid.maximumRadius,
         tileSize: this.tileSize,
       };
 
-      const res = await this.workerFarm.scheduleTask(params, [
-        pixelData.buffer,
-      ]);
-      //const res = await decodeTerrain(params, []);
+      let res;
+      if (this.useWorkers) {
+        res = await this.workerFarm.scheduleTask(params, [pixelData.buffer]);
+      } else {
+        res = decodeTerrain(params, []);
+      }
       return this.createQuantizedMeshData(x, y, z, res);
     } catch (err) {
       // console.log(err);
@@ -166,8 +174,6 @@ class MapboxTerrainProvider {
       eastIndices,
       northIndices,
     } = workerOutput;
-
-    console.log(workerOutput);
 
     const err = this.getLevelMaximumGeometricError(z);
     const skirtHeight = err * 5;

@@ -37,21 +37,22 @@ function decodeTerrain(
   // get a mesh (vertices and triangles indices) for a 10m error
   console.log(`Error level: ${errorLevel}`);
   const mesh = tile.getMesh(errorLevel);
-
   return createQuantizedMeshData(tile, mesh, tileSize);
 }
 
-//export { decodeTerrain };
+export { decodeTerrain };
 
 self.onmessage = function(msg) {
   const { id, payload } = msg.data;
+  let objects = [];
   try {
     const res = decodeTerrain(payload);
-    self.postMessage({ id, payload: res }, [
-      res.indices.buffer,
-      res.quantizedVertices.buffer,
-    ]);
+    objects.push(res.indices.buffer);
+    objects.push(res.quantizedVertices.buffer);
+    self.postMessage({ id, payload: res }, objects);
   } catch (err) {
     self.postMessage({ id, err: err.toString() });
+  } finally {
+    objects = null;
   }
 };
