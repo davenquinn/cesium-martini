@@ -3,6 +3,7 @@ import {
   Rectangle,
   Ellipsoid,
   WebMercatorTilingScheme,
+  TileMapServiceImageryProvider,
   TerrainProvider,
   Math as CMath,
   Event as CEvent,
@@ -10,15 +11,21 @@ import {
   BoundingSphere,
   QuantizedMeshTerrainData,
   HeightmapTerrainData,
+  WebMapTileServiceImageryProvider,
   MapboxImageryProvider,
+  UrlTemplateImageryProvider,
   // @ts-ignore
   OrientedBoundingBox,
   Credit,
+  Cesium3DTile,
 } from "cesium";
 const ndarray = require("ndarray");
+import axios from "axios";
 import Martini from "@mapbox/martini";
 import WorkerFarm from "./worker-farm";
 import { TerrainWorkerInput, decodeTerrain } from "./worker";
+import { error } from "console";
+import { throws } from "assert";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
@@ -40,6 +47,7 @@ interface MapboxTerrainOpts {
   accessToken: string;
   highResolution?: boolean;
   workerURL: string;
+  urlTemplate: string;
 }
 
 interface CanvasRef {
@@ -47,7 +55,16 @@ interface CanvasRef {
   context: CanvasRenderingContext2D;
 }
 
-class MapboxTerrainProvider {
+const loadImage = (url) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.addEventListener("load", () => resolve(img));
+    img.addEventListener("error", (err) => reject(err));
+    img.crossOrigin = "anonymous";
+    img.src = url;
+  });
+
+class MartiniTerrainProvider {
   martini: any;
   hasWaterMask = false;
   hasVertexNormals = false;
@@ -62,13 +79,6 @@ class MapboxTerrainProvider {
   format: ImageFormat;
   highResolution: boolean;
   tileSize: number = 256;
-  backend: MapboxImageryProvider = new MapboxImageryProvider({
-    mapId: "mapbox.terrain-rgb",
-    maximumLevel: 15,
-    accessToken: process.env.MAPBOX_API_TOKEN,
-    hasAlphaChannel: false,
-    format: "@2x.webp",
-  });
   workerFarm: WorkerFarm;
   inProgressWorkers: number = 0;
   useWorkers: boolean = true;
@@ -98,12 +108,22 @@ class MapboxTerrainProvider {
       numberOfLevelZeroTilesY: 1,
       ellipsoid: this.ellipsoid,
     });
+    /*
+    this.backend = new UrlTemplateImageryProvider({
+      url: process.env.API_BASE_URL + "/terrain/{z}/{x}/{y}.png",
+      ellipsoid: this.ellipsoid,
+      minimumLevel: 4,
+      maximumLevel: 10,
+      tilingScheme: this.tilingScheme,
+      rectangle: Rectangle.MAX_VALUE,
+    });
+    */
   }
 
   getCanvas(): CanvasRef {
     let ctx = this.contextQueue.pop();
     if (ctx == null) {
-      console.log("Creating new canvas element");
+      //console.log("Creating new canvas element");
       const canvas = document.createElement("canvas");
       canvas.width = this.tileSize;
       canvas.height = this.tileSize;
@@ -129,32 +149,37 @@ class MapboxTerrainProvider {
     return pixels;
   }
 
+  /*
+  buildTileURL(tileCoords: TileCoordinates) {
+    const { z, x, y } = tileCoords;
+    const hires = this.highResolution ? "@2x" : "";
+    return `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
+  }
+  */
+  buildTileURL(tileCoords: TileCoordinates) {
+    const { z, x, y } = tileCoords;
+    //const hires = this.highResolution ? "@2x" : "";
+    return `${process.env.API_BASE_URL}/terrain/${z}/${x}/${y}.png`;
+  }
+
   requestTileGeometry(x, y, z, request) {
-    const imgPromise = this.backend.requestImage(x, y, z, request);
-    if (imgPromise == null || this.inProgressWorkers > 5) return undefined;
-    return imgPromise.then(async (imgData) => {
-      this.inProgressWorkers += 1;
-      const res = await this.processTile(x, y, z, imgData);
+    if (this.inProgressWorkers > 5) return undefined;
+    this.inProgressWorkers += 1;
+    return this.processTile(x, y, z).finally(() => {
       this.inProgressWorkers -= 1;
-      return res;
     });
   }
 
-  async processTile(
-    x: number,
-    y: number,
-    z: number,
-    image: HTMLImageElement | HTMLCanvasElement
-  ) {
+  async processTile(x: number, y: number, z: number) {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
     const err = this.getLevelMaximumGeometricError(z);
-    console.log(x, y, z);
-
     const hires = this.highResolution ? "@2x" : "";
 
     try {
+      const url = this.buildTileURL({ x, y, z });
+      const image = await loadImage(url);
       const px = this.getPixels(image);
       const pixelData = px.data;
 
@@ -176,7 +201,7 @@ class MapboxTerrainProvider {
       }
       return this.createQuantizedMeshData(x, y, z, res);
     } catch (err) {
-      // console.log(err);
+      //console.log(err);
       // return undefined
       const v = Math.max(32 - 4 * z, 4);
       return this.emptyHeightmap(v);
@@ -303,4 +328,4 @@ class MapboxTerrainProvider {
   }
 }
 
-export default MapboxTerrainProvider;
+export default MartiniTerrainProvider;
