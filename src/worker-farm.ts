@@ -10,7 +10,7 @@ async function sendMessage(worker, payload, transferableObjects) {
     id: msgId,
     payload,
   };
-  return new Promise(function(resolve, reject) {
+  return new Promise(function (resolve, reject) {
     // save callbacks for later
     resolves[msgId] = resolve;
     rejects[msgId] = reject;
@@ -50,6 +50,7 @@ class WorkerFarm {
   }
 
   async scheduleTask(params, transferableObjects) {
+    console.log(params);
     let res = await sendMessage(this.worker, params, transferableObjects);
     return res;
   }

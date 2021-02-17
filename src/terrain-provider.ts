@@ -79,6 +79,9 @@ class MapboxTerrainProvider {
     this.format = opts.format ?? ImageFormat.WEBP;
     this.workerFarm = new WorkerFarm();
 
+    this.skipLevelOfDetail = true;
+    this.immediatelyLoadDesiredLevelOfDetail = true;
+
     this.backend = new MapboxImageryProvider({
       mapId: "mapbox.terrain-rgb",
       maximumLevel: 15,
@@ -144,6 +147,7 @@ class MapboxTerrainProvider {
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
     const err = this.getLevelMaximumGeometricError(z);
+    console.log(x, y, z);
 
     const hires = this.highResolution ? "@2x" : "";
 

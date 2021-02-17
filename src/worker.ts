@@ -42,8 +42,10 @@ function decodeTerrain(
 
 export { decodeTerrain };
 
-self.onmessage = function(msg) {
+self.onmessage = function (msg) {
   const { id, payload } = msg.data;
+  if (id == null) return;
+  console.log("Worker recieved message", msg.data);
   let objects = [];
   try {
     const res = decodeTerrain(payload);
