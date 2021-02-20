@@ -81,6 +81,7 @@ class MartiniTerrainProvider {
   tileSize: number = 256;
   workerFarm: WorkerFarm;
   inProgressWorkers: number = 0;
+  levelOfDetailScalar: number | null = null;
   useWorkers: boolean = true;
   contextQueue: CanvasRef[];
 
@@ -174,7 +175,8 @@ class MartiniTerrainProvider {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
-    const err = this.getLevelMaximumGeometricError(z);
+    const err =
+      this.getLevelMaximumGeometricError(z) / this.levelOfDetailScalar;
     const hires = this.highResolution ? "@2x" : "";
 
     try {
@@ -220,7 +222,8 @@ class MartiniTerrainProvider {
       northIndices,
     } = workerOutput;
 
-    const err = this.getLevelMaximumGeometricError(z);
+    const err =
+      this.getLevelMaximumGeometricError(z) / this.levelOfDetailScalar;
     const skirtHeight = err * 5;
 
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
@@ -318,7 +321,7 @@ class MartiniTerrainProvider {
 
     // Scalar to control overzooming
     // also seems to control zooming for imagery layers
-    const scalar = this.highResolution ? 4 : 2;
+    const scalar = this.highResolution ? 2 : 1;
 
     return levelZeroMaximumGeometricError / scalar / (1 << level);
   }
