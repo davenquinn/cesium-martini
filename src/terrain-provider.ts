@@ -3,7 +3,6 @@ import {
   Rectangle,
   Ellipsoid,
   WebMercatorTilingScheme,
-  TileMapServiceImageryProvider,
   TerrainProvider,
   Math as CMath,
   Event as CEvent,
@@ -11,21 +10,14 @@ import {
   BoundingSphere,
   QuantizedMeshTerrainData,
   HeightmapTerrainData,
-  WebMapTileServiceImageryProvider,
-  MapboxImageryProvider,
-  UrlTemplateImageryProvider,
   // @ts-ignore
   OrientedBoundingBox,
   Credit,
-  Cesium3DTile,
 } from "cesium";
 const ndarray = require("ndarray");
-import axios from "axios";
 import Martini from "@mapbox/martini";
 import WorkerFarm from "./worker-farm";
 import { TerrainWorkerInput, decodeTerrain } from "./worker";
-import { error } from "console";
-import { throws } from "assert";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
@@ -85,14 +77,16 @@ class MartiniTerrainProvider {
   useWorkers: boolean = true;
   contextQueue: CanvasRef[];
 
-  RADIUS_SCALAR = 1;
+  RADIUS_SCALAR = 1.0;
 
   // @ts-ignore
   constructor(opts: MapboxTerrainOpts = {}) {
     //this.martini = new Martini(257);
     this.highResolution = true; //opts.highResolution ?? false
-    this.tileSize = this.highResolution ? 512 : 256;
+    this.tileSize = 512; //this.highResolution ? 512 : 256;
     this.contextQueue = [];
+
+    this.levelOfDetailScalar ??= 8.00001;
 
     this.martini = new Martini(this.tileSize + 1);
     this.ready = true;
@@ -109,16 +103,6 @@ class MartiniTerrainProvider {
       numberOfLevelZeroTilesY: 1,
       ellipsoid: this.ellipsoid,
     });
-    /*
-    this.backend = new UrlTemplateImageryProvider({
-      url: process.env.API_BASE_URL + "/terrain/{z}/{x}/{y}.png",
-      ellipsoid: this.ellipsoid,
-      minimumLevel: 4,
-      maximumLevel: 10,
-      tilingScheme: this.tilingScheme,
-      rectangle: Rectangle.MAX_VALUE,
-    });
-    */
   }
 
   getCanvas(): CanvasRef {
@@ -150,17 +134,10 @@ class MartiniTerrainProvider {
     return pixels;
   }
 
-  /*
   buildTileURL(tileCoords: TileCoordinates) {
     const { z, x, y } = tileCoords;
     const hires = this.highResolution ? "@2x" : "";
     return `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
-  }
-  */
-  buildTileURL(tileCoords: TileCoordinates) {
-    const { z, x, y } = tileCoords;
-    //const hires = this.highResolution ? "@2x" : "";
-    return `${process.env.API_BASE_URL}/terrain/${z}/${x}/${y}.png`;
   }
 
   requestTileGeometry(x, y, z, request) {
@@ -175,8 +152,7 @@ class MartiniTerrainProvider {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
-    const err =
-      this.getLevelMaximumGeometricError(z) / this.levelOfDetailScalar;
+    const err = this.getLevelMaximumGeometricError(z); // / this.levelOfDetailScalar;
     const hires = this.highResolution ? "@2x" : "";
 
     try {
@@ -222,8 +198,7 @@ class MartiniTerrainProvider {
       northIndices,
     } = workerOutput;
 
-    const err =
-      this.getLevelMaximumGeometricError(z) / this.levelOfDetailScalar;
+    const err = this.getLevelMaximumGeometricError(z); /// this.levelOfDetailScalar;
     const skirtHeight = err * 5;
 
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
@@ -234,14 +209,13 @@ class MartiniTerrainProvider {
     const cosWidth = Math.cos(tileRect.width / 2); // half tile width since our ref point is at the center
     // scale max height to max ellipsoid radius
     // ... it might be better to use the radius of the entire
-    const ellipsoidHeight =
-      (maxHeight / this.ellipsoid.maximumRadius) * this.RADIUS_SCALAR;
+    const ellipsoidHeight = maxHeight / this.ellipsoid.maximumRadius;
     // cosine relationship to scale height in ellipsoid-relative coordinates
     const occlusionHeight = (1 + ellipsoidHeight) / cosWidth;
 
-    const scaledCenter =
-      Ellipsoid.WGS84.transformPositionToScaledSpace(tileCenter) *
-      this.RADIUS_SCALAR;
+    const scaledCenter = Ellipsoid.WGS84.transformPositionToScaledSpace(
+      tileCenter
+    );
     const horizonOcclusionPoint = new Cartesian3(
       scaledCenter.x,
       scaledCenter.y,
@@ -266,14 +240,14 @@ class MartiniTerrainProvider {
       boundingSphere = new BoundingSphere(
         Cartesian3.ZERO,
         // radius (seems to be max height of Earth terrain?)
-        6379792.481506292 * this.RADIUS_SCALAR
+        6379792.481506292
       );
     }
 
     // @ts-ignore
 
     // If our tile has greater than ~1º size
-    if (tileRect.width > 0.1) {
+    if (tileRect.width > 0.04 && triangles.length < 500) {
       // We need to be able to specify a minimum number of triangles...
       return this.emptyHeightmap(64);
     }
@@ -321,7 +295,7 @@ class MartiniTerrainProvider {
 
     // Scalar to control overzooming
     // also seems to control zooming for imagery layers
-    const scalar = this.highResolution ? 2 : 1;
+    const scalar = this.highResolution ? 4 : 2;
 
     return levelZeroMaximumGeometricError / scalar / (1 << level);
   }

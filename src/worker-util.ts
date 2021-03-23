@@ -50,11 +50,7 @@ function createQuantizedMeshData(tile, mesh, tileSize = 256) {
     const vertexIx = ix;
     const px = mesh.vertices[ix * 2];
     const py = mesh.vertices[ix * 2 + 1];
-    let height = tile.terrain[py * (tileSize + 1) + px];
-
-    // Mars edit
-    if (height > 8000) height = -4000;
-    heightMeters.push(height);
+    heightMeters.push(tile.terrain[py * (tileSize + 1) + px]);
 
     if (py == 0) northIndices.push(vertexIx);
     if (py == tileSize) southIndices.push(vertexIx);
