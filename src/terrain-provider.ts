@@ -82,11 +82,11 @@ class MartiniTerrainProvider {
   // @ts-ignore
   constructor(opts: MapboxTerrainOpts = {}) {
     //this.martini = new Martini(257);
-    this.highResolution = true; //opts.highResolution ?? false
-    this.tileSize = 512; //this.highResolution ? 512 : 256;
+    this.highResolution = opts.highResolution ?? false;
+    this.tileSize = this.highResolution ? 512 : 256;
     this.contextQueue = [];
 
-    this.levelOfDetailScalar ??= 8.00001;
+    this.levelOfDetailScalar = 4.0;
 
     this.martini = new Martini(this.tileSize + 1);
     this.ready = true;
@@ -152,7 +152,9 @@ class MartiniTerrainProvider {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
-    const err = this.getLevelMaximumGeometricError(z); // / this.levelOfDetailScalar;
+    const err =
+      this.getLevelMaximumGeometricError(z) / this.levelOfDetailScalar;
+    console.log(err);
     const hires = this.highResolution ? "@2x" : "";
 
     try {
@@ -198,7 +200,8 @@ class MartiniTerrainProvider {
       northIndices,
     } = workerOutput;
 
-    const err = this.getLevelMaximumGeometricError(z); /// this.levelOfDetailScalar;
+    const err =
+      this.getLevelMaximumGeometricError(z) / this.levelOfDetailScalar;
     const skirtHeight = err * 5;
 
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
