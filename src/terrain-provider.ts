@@ -86,7 +86,7 @@ class MartiniTerrainProvider {
     this.tileSize = this.highResolution ? 512 : 256;
     this.contextQueue = [];
 
-    this.levelOfDetailScalar = 4.0;
+    this.levelOfDetailScalar = 4.0 + CMath.EPSILON5;
 
     this.martini = new Martini(this.tileSize + 1);
     this.ready = true;
@@ -225,6 +225,8 @@ class MartiniTerrainProvider {
       occlusionHeight
     );
 
+    console.log(horizonOcclusionPoint);
+
     let orientedBoundingBox = null;
     let boundingSphere: BoundingSphere;
     if (tileRect.width < CMath.PI_OVER_TWO + CMath.EPSILON5) {
@@ -298,7 +300,7 @@ class MartiniTerrainProvider {
 
     // Scalar to control overzooming
     // also seems to control zooming for imagery layers
-    const scalar = this.highResolution ? 4 : 2;
+    const scalar = this.highResolution ? 8 : 4;
 
     return levelZeroMaximumGeometricError / scalar / (1 << level);
   }
