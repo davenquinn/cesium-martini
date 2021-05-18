@@ -41,6 +41,7 @@ interface MapboxTerrainOpts {
   workerURL: string;
   urlTemplate: string;
   detailScalar?: number;
+  minimumErrorLevel?: number;
 }
 
 interface CanvasRef {
@@ -94,6 +95,7 @@ class MartiniTerrainProvider {
     this.ready = true;
     this.readyPromise = Promise.resolve(true);
     this.accessToken = opts.accessToken;
+    this.minError = opts.minimumErrorLevel ?? 10;
 
     this.errorEvent.addEventListener(console.log, this);
     this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84;
@@ -184,6 +186,9 @@ class MartiniTerrainProvider {
       }
       const tile = this.createQuantizedMeshData(x, y, z, res);
       console.log(tile);
+      if (tile._mesh == null) {
+        throw "Had an error!";
+      }
       return tile;
     } catch (err) {
       console.log(err);
