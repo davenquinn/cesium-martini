@@ -17,7 +17,7 @@ function mapboxTerrainToGrid(png: ndarray<number>) {
       const g = png.get(x, yc, 1);
       const b = png.get(x, yc, 2);
       terrain[y * gridSize + x] =
-        (r * 256 * 256 + g * 256.0 + b) / 10.0 - 10000.0;
+        (r * 256 * 256) / 10.0 + (g * 256.0) / 10.0 + b / 10.0 - 10000.0;
     }
   }
   // backfill right and bottom borders
@@ -57,7 +57,7 @@ function createQuantizedMeshData(tile, mesh, tileSize = 256) {
     if (px == 0) westIndices.push(vertexIx);
     if (px == tileSize) eastIndices.push(vertexIx);
 
-    const scalar = 32768 / tileSize;
+    const scalar = 32768.0 / tileSize;
     let xv = px * scalar;
     let yv = (tileSize - py) * scalar;
 
@@ -68,9 +68,9 @@ function createQuantizedMeshData(tile, mesh, tileSize = 256) {
   const maxHeight = Math.max.apply(this, heightMeters);
   const minHeight = Math.min.apply(this, heightMeters);
 
-  const heights = heightMeters.map((d) => {
+  const heights = heightMeters.map(d => {
     if (maxHeight - minHeight < 1) return 0;
-    return (d - minHeight) * (32767 / (maxHeight - minHeight));
+    return (d - minHeight) * (32767.0 / (maxHeight - minHeight));
   });
 
   const triangles = new Uint16Array(mesh.triangles);
@@ -90,7 +90,7 @@ function createQuantizedMeshData(tile, mesh, tileSize = 256) {
     westIndices,
     southIndices,
     eastIndices,
-    northIndices,
+    northIndices
   };
 }
 

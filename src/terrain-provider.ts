@@ -12,7 +12,7 @@ import {
   HeightmapTerrainData,
   // @ts-ignore
   OrientedBoundingBox,
-  Credit,
+  Credit
 } from "cesium";
 const ndarray = require("ndarray");
 import Martini from "@mapbox/martini";
@@ -24,7 +24,7 @@ import { TerrainWorkerInput, decodeTerrain } from "./worker";
 enum ImageFormat {
   WEBP = "webp",
   PNG = "png",
-  PNGRAW = "pngraw",
+  PNGRAW = "pngraw"
 }
 
 interface TileCoordinates {
@@ -40,6 +40,7 @@ interface MapboxTerrainOpts {
   highResolution?: boolean;
   workerURL: string;
   urlTemplate: string;
+  detailScalar?: number;
 }
 
 interface CanvasRef {
@@ -47,11 +48,11 @@ interface CanvasRef {
   context: CanvasRenderingContext2D;
 }
 
-const loadImage = (url) =>
+const loadImage = url =>
   new Promise((resolve, reject) => {
     const img = new Image();
     img.addEventListener("load", () => resolve(img));
-    img.addEventListener("error", (err) => reject(err));
+    img.addEventListener("error", err => reject(err));
     img.crossOrigin = "anonymous";
     img.src = url;
   });
@@ -76,6 +77,7 @@ class MartiniTerrainProvider {
   levelOfDetailScalar: number | null = null;
   useWorkers: boolean = true;
   contextQueue: CanvasRef[];
+  minError: number = 10;
 
   RADIUS_SCALAR = 1.0;
 
@@ -86,7 +88,7 @@ class MartiniTerrainProvider {
     this.tileSize = this.highResolution ? 512 : 256;
     this.contextQueue = [];
 
-    this.levelOfDetailScalar = 4.0 + CMath.EPSILON5;
+    this.levelOfDetailScalar = (opts.detailScalar ?? 4) + CMath.EPSILON5;
 
     this.martini = new Martini(this.tileSize + 1);
     this.ready = true;
@@ -101,7 +103,7 @@ class MartiniTerrainProvider {
     this.tilingScheme = new WebMercatorTilingScheme({
       numberOfLevelZeroTilesX: 1,
       numberOfLevelZeroTilesY: 1,
-      ellipsoid: this.ellipsoid,
+      ellipsoid: this.ellipsoid
     });
   }
 
@@ -115,7 +117,7 @@ class MartiniTerrainProvider {
       const context = canvas.getContext("2d");
       ctx = {
         canvas,
-        context,
+        context
       };
     }
     return ctx;
@@ -137,6 +139,7 @@ class MartiniTerrainProvider {
   buildTileURL(tileCoords: TileCoordinates) {
     const { z, x, y } = tileCoords;
     const hires = this.highResolution ? "@2x" : "";
+    // https://api.mapbox.com/raster/v1/mapbox.mapbox-terrain-dem-v1/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}&sku=101EX9Btybqbj
     return `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
   }
 
@@ -152,9 +155,7 @@ class MartiniTerrainProvider {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
-    const err =
-      this.getLevelMaximumGeometricError(z) / this.levelOfDetailScalar;
-    console.log(err);
+    const err = this.getErrorLevel(z);
     const hires = this.highResolution ? "@2x" : "";
 
     try {
@@ -163,6 +164,8 @@ class MartiniTerrainProvider {
       const px = this.getPixels(image);
       const pixelData = px.data;
 
+      console.log(x, y, z);
+
       const params: TerrainWorkerInput = {
         imageData: pixelData,
         x,
@@ -170,7 +173,7 @@ class MartiniTerrainProvider {
         z,
         errorLevel: err,
         ellipsoidRadius: this.ellipsoid.maximumRadius,
-        tileSize: this.tileSize,
+        tileSize: this.tileSize
       };
 
       let res;
@@ -179,13 +182,22 @@ class MartiniTerrainProvider {
       } else {
         res = decodeTerrain(params, []);
       }
-      return this.createQuantizedMeshData(x, y, z, res);
+      const tile = this.createQuantizedMeshData(x, y, z, res);
+      console.log(tile);
+      return tile;
     } catch (err) {
-      //console.log(err);
+      console.log(err);
       // return undefined
       const v = Math.max(32 - 4 * z, 4);
       return this.emptyHeightmap(v);
     }
+  }
+
+  getErrorLevel(zoom: number) {
+    return Math.max(
+      this.getLevelMaximumGeometricError(zoom) / this.levelOfDetailScalar,
+      this.minError
+    );
   }
 
   createQuantizedMeshData(x, y, z, workerOutput) {
@@ -197,11 +209,10 @@ class MartiniTerrainProvider {
       westIndices,
       southIndices,
       eastIndices,
-      northIndices,
+      northIndices
     } = workerOutput;
 
-    const err =
-      this.getLevelMaximumGeometricError(z) / this.levelOfDetailScalar;
+    const err = this.getErrorLevel(z);
     const skirtHeight = err * 5;
 
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
@@ -279,7 +290,7 @@ class MartiniTerrainProvider {
       southSkirtHeight: skirtHeight,
       eastSkirtHeight: skirtHeight,
       northSkirtHeight: skirtHeight,
-      childTileMask: 15,
+      childTileMask: 15
     });
   }
 
@@ -287,7 +298,7 @@ class MartiniTerrainProvider {
     return new HeightmapTerrainData({
       buffer: new Uint8Array(Array(samples * samples).fill(0)),
       width: samples,
-      height: samples,
+      height: samples
     });
   }
 
@@ -300,7 +311,7 @@ class MartiniTerrainProvider {
 
     // Scalar to control overzooming
     // also seems to control zooming for imagery layers
-    const scalar = this.highResolution ? 8 : 4;
+    const scalar = 1; // this.highResolution ? 8 : 4;
 
     return levelZeroMaximumGeometricError / scalar / (1 << level);
   }
