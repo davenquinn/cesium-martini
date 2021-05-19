@@ -3,235 +3,269 @@ import {
   Rectangle,
   Ellipsoid,
   WebMercatorTilingScheme,
-  TerrainProvider,
   Math as CMath,
   Event as CEvent,
   Cartesian3,
   BoundingSphere,
   QuantizedMeshTerrainData,
   HeightmapTerrainData,
-  // @ts-ignore
   OrientedBoundingBox,
+  TerrainProvider,
   Credit
-} from "cesium"
-import ndarray from 'ndarray'
-import getPixels from 'get-pixels'
-import Martini from '@mapbox/martini'
-
-function mapboxTerrainToGrid(png: ndarray<number>) {
-    const gridSize = png.shape[0] + 1;
-    const terrain = new Float32Array(gridSize * gridSize);
-    const tileSize = png.shape[0];
-
-    // decode terrain values
-    for (let y = 0; y < tileSize; y++) {
-        for (let x = 0; x < tileSize; x++) {
-            const yc = y
-            const r = png.get(x,yc,0);
-            const g = png.get(x,yc,1);
-            const b = png.get(x,yc,2);
-            terrain[y * gridSize + x] = (r * 256 * 256 + g * 256.0 + b) / 10.0 - 10000.0;
-        }
-    }
-    // backfill right and bottom borders
-    for (let x = 0; x < gridSize - 1; x++) {
-      terrain[gridSize * (gridSize - 1) + x] = terrain[gridSize * (gridSize - 2) + x];
-    }
-    for (let y = 0; y < gridSize; y++) {
-      terrain[gridSize * y + gridSize - 1] = terrain[gridSize * y + gridSize - 2];
-    }
-    return terrain;
-}
+} from "cesium";
+const ndarray = require("ndarray");
+import Martini from "../martini/index.js";
+import WorkerFarm from "./worker-farm";
+import { TerrainWorkerInput, decodeTerrain } from "./worker";
+import TilingScheme from "cesium/Source/Core/TilingScheme";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
 enum ImageFormat {
-  WEBP = 'webp',
-  PNG = 'png',
-  PNGRAW = 'pngraw'
+  WEBP = "webp",
+  PNG = "png",
+  PNGRAW = "pngraw"
+}
+
+interface TileCoordinates {
+  x: number;
+  y: number;
+  z: number;
 }
 
 interface MapboxTerrainOpts {
-  format: ImageFormat
-  ellipsoid?: Ellipsoid
-  accessToken: string
-  highResolution?: boolean
+  format: ImageFormat;
+  ellipsoid?: Ellipsoid;
+  accessToken: string;
+  highResolution?: boolean;
+  workerURL: string;
+  urlTemplate: string;
+  detailScalar?: number;
+  minimumErrorLevel?: number;
 }
 
-class MapboxTerrainProvider {
-  martini: any
-  hasWaterMask = false
-  hasVertexNormals = false
-  credit = new Credit("Mapbox")
-  ready: boolean
-  readyPromise: Promise<boolean>
-  availability = null
-  errorEvent = new CEvent()
-  tilingScheme: TerrainProvider["tilingScheme"]
-  ellipsoid: Ellipsoid
-  accessToken: string
-  format: ImageFormat
-  highResolution: boolean
-  tileSize: number = 256
+interface CanvasRef {
+  canvas: HTMLCanvasElement;
+  context: CanvasRenderingContext2D;
+}
+
+const loadImage = url =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.addEventListener("load", () => resolve(img));
+    img.addEventListener("error", err => reject(err));
+    img.crossOrigin = "anonymous";
+    img.src = url;
+  });
+
+class MartiniTerrainProvider<TerrainProvider> {
+  martini: any;
+  hasWaterMask = false;
+  hasVertexNormals = false;
+  credit = new Credit("Mapbox");
+  ready: boolean;
+  readyPromise: Promise<boolean>;
+  availability = null;
+  errorEvent = new CEvent();
+  tilingScheme: TilingScheme;
+  ellipsoid: Ellipsoid;
+  accessToken: string;
+  format: ImageFormat;
+  highResolution: boolean;
+  tileSize: number = 256;
+  workerFarm: WorkerFarm;
+  inProgressWorkers: number = 0;
+  levelOfDetailScalar: number | null = null;
+  useWorkers: boolean = true;
+  contextQueue: CanvasRef[];
+  minError: number = 0.1;
+
+  RADIUS_SCALAR = 1.0;
 
   // @ts-ignore
-  constructor(opts: MapboxTerrainOpts) {
-
+  constructor(opts: MapboxTerrainOpts = {}) {
     //this.martini = new Martini(257);
-    this.highResolution = opts.highResolution ?? false
-    this.tileSize = this.highResolution ? 512 : 256
+    this.highResolution = opts.highResolution ?? false;
+    this.tileSize = this.highResolution ? 512 : 256;
+    this.contextQueue = [];
 
-    this.martini = new Martini(this.tileSize+1)
-    this.ready = true
-    this.readyPromise = Promise.resolve(true)
-    this.accessToken = opts.accessToken
+    this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
+
+    this.martini = new Martini(this.tileSize + 1);
+    this.ready = true;
+    this.readyPromise = Promise.resolve(true);
+    this.accessToken = opts.accessToken;
+    this.minError = opts.minimumErrorLevel ?? 0.1;
 
     this.errorEvent.addEventListener(console.log, this);
-    this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84
-    this.format = opts.format ?? ImageFormat.PNG
+    this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84;
+    this.format = opts.format ?? ImageFormat.WEBP;
+    this.workerFarm = new WorkerFarm();
 
     this.tilingScheme = new WebMercatorTilingScheme({
       numberOfLevelZeroTilesX: 1,
       numberOfLevelZeroTilesY: 1,
       ellipsoid: this.ellipsoid
-    })
-
+    });
   }
 
-  async getPixels(url: string, type=""): Promise<ndarray<number>> {
-    return new Promise((resolve, reject)=>{
-      getPixels(url, type, (err, array)=>{
-        if (err != null) reject(err)
-        resolve(array)
-      })
-    })
+  getCanvas(): CanvasRef {
+    let ctx = this.contextQueue.pop();
+    if (ctx == null) {
+      //console.log("Creating new canvas element");
+      const canvas = document.createElement("canvas");
+      canvas.width = this.tileSize;
+      canvas.height = this.tileSize;
+      const context = canvas.getContext("2d");
+      ctx = {
+        canvas,
+        context
+      };
+    }
+    return ctx;
   }
 
-  async requestMapboxTile (x, y, z) {
-    const mx = this.tilingScheme.getNumberOfYTilesAtLevel(z)
-    const err = this.getLevelMaximumGeometricError(z)
+  getPixels(img: HTMLImageElement | HTMLCanvasElement): ImageData {
+    const canvasRef = this.getCanvas();
+    const { context } = canvasRef;
+    //context.scale(1, -1);
+    // Chrome appears to vertically flip the image for reasons that are unclear
+    // We can make it work in Chrome by drawing the image upside-down at this step.
+    context.drawImage(img, 0, 0, this.tileSize, this.tileSize);
+    const pixels = context.getImageData(0, 0, this.tileSize, this.tileSize);
+    context.clearRect(0, 0, this.tileSize, this.tileSize);
+    this.contextQueue.push(canvasRef);
+    return pixels;
+  }
 
-    const hires = this.highResolution ? '@2x' : ''
+  buildTileURL(tileCoords: TileCoordinates) {
+    const { z, x, y } = tileCoords;
+    const hires = this.highResolution ? "@2x" : "";
+    // https://api.mapbox.com/raster/v1/mapbox.mapbox-terrain-dem-v1/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}&sku=101EX9Btybqbj
+    return `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
+  }
 
+  requestTileGeometry(x, y, z, request) {
+    if (this.inProgressWorkers > 5) return undefined;
+    this.inProgressWorkers += 1;
+    return this.processTile(x, y, z).finally(() => {
+      this.inProgressWorkers -= 1;
+    });
+  }
+
+  async processTile(x: number, y: number, z: number) {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
-    const url =  `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`
+    //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
+    const err = this.getErrorLevel(z);
+    const hires = this.highResolution ? "@2x" : "";
 
     try {
-      const pxArray = await this.getPixels(url)
+      const url = this.buildTileURL({ x, y, z });
+      const image = await loadImage(url);
+      const px = this.getPixels(image);
+      const pixelData = px.data;
 
-      const terrain = mapboxTerrainToGrid(pxArray)
+      const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
+      let maxLength = null;
+      // More than a degree or so
+      if (tileRect.height > 0.01) {
+        // We need to be able to specify a minimum number of triangles...
+        maxLength = 20 * (z + 1);
+      }
 
-      // set up mesh generator for a certain 2^k+1 grid size
-      // generate RTIN hierarchy from terrain data (an array of size^2 length)
-      const tile = this.martini.createTile(terrain);
+      const params: TerrainWorkerInput = {
+        imageData: pixelData,
+        maxLength,
+        x,
+        y,
+        z,
+        errorLevel: err,
+        ellipsoidRadius: this.ellipsoid.maximumRadius,
+        tileSize: this.tileSize
+      };
 
-      // get a mesh (vertices and triangles indices) for a 10m error
-      console.log(`Error level: ${err}`)
-      const mesh = tile.getMesh(err);
+      let res;
+      if (this.useWorkers) {
+        res = await this.workerFarm.scheduleTask(params, [pixelData.buffer]);
+      } else {
+        res = decodeTerrain(params, []);
+      }
 
-      return await this.createQuantizedMeshData(x, y, z, tile, mesh)
-    } catch(err) {
-      // We fall back to a heightmap
-      const v = Math.max(32-4*z, 4)
-      return this.emptyHeightmap(v)
+      const tile = this.createQuantizedMeshData(tileRect, err, res);
+      return tile;
+    } catch (err) {
+      console.log(err);
+      // return undefined
+      const v = Math.max(32 - 4 * z, 4);
+      return this.emptyHeightmap(v);
     }
   }
 
-  emptyHeightmap(samples) {
-    return new HeightmapTerrainData({
-      buffer: new Uint8Array(Array(samples*samples).fill(0)),
-      width: samples,
-      height: samples
-    })
+  getErrorLevel(zoom: number) {
+    return Math.max(
+      this.getLevelMaximumGeometricError(zoom) / this.levelOfDetailScalar,
+      this.minError
+    );
   }
 
-  async createQuantizedMeshData (x, y, z, tile, mesh) {
-    const err = this.getLevelMaximumGeometricError(z)
-    const skirtHeight = err*5
+  createQuantizedMeshData(tileRect, errorLevel, workerOutput) {
+    const {
+      minimumHeight: minHeight,
+      maximumHeight: maxHeight,
+      quantizedVertices,
+      indices: triangles,
+      westIndices,
+      southIndices,
+      eastIndices,
+      northIndices
+    } = workerOutput;
 
-    const xvals = []
-    const yvals = []
-    const heightMeters = []
-    const northIndices = []
-    const southIndices = []
-    const eastIndices = []
-    const westIndices = []
+    const err = errorLevel;
+    const skirtHeight = err * 5;
 
-    for (let ix = 0; ix < mesh.vertices.length/2; ix++) {
-      const vertexIx = ix
-      const px = mesh.vertices[ix*2]
-      const py = mesh.vertices[ix*2+1]
-      heightMeters.push(tile.terrain[py*(this.tileSize+1)+px])
-
-      if (py == 0) northIndices.push(vertexIx)
-      if (py == this.tileSize) southIndices.push(vertexIx)
-      if (px == 0) westIndices.push(vertexIx)
-      if (px == this.tileSize) eastIndices.push(vertexIx)
-
-      // This saves us from out-of-range values like 32768
-      const scalar = 32768/this.tileSize
-      let xv = px*scalar
-      let yv = (this.tileSize-py)*scalar
-
-      xvals.push(xv)
-      yvals.push(yv)
-    }
-
-    const maxHeight = Math.max.apply(this, heightMeters)
-    const minHeight = Math.min.apply(this, heightMeters)
-
-    const heights = heightMeters.map(d =>{
-      if (maxHeight-minHeight < 1) return 0
-      return (d-minHeight)*(32767/(maxHeight-minHeight))
-    })
-
-
-    const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z)
-    const tileCenter = Cartographic.toCartesian(Rectangle.center(tileRect))
+    const tileCenter = Cartographic.toCartesian(Rectangle.center(tileRect));
     // Need to get maximum distance at zoom level
     // tileRect.width is given in radians
     // cos of half-tile-width allows us to use right-triangle relationship
-    const cosWidth = Math.cos(tileRect.width/2)// half tile width since our ref point is at the center
+    const cosWidth = Math.cos(tileRect.width / 2); // half tile width since our ref point is at the center
     // scale max height to max ellipsoid radius
     // ... it might be better to use the radius of the entire
-    const ellipsoidHeight = maxHeight/this.ellipsoid.maximumRadius
+    const ellipsoidHeight = maxHeight / this.ellipsoid.maximumRadius;
     // cosine relationship to scale height in ellipsoid-relative coordinates
-    const occlusionHeight = (1+ellipsoidHeight)/cosWidth
+    const occlusionHeight = (1 + ellipsoidHeight) / cosWidth;
 
-    const scaledCenter = Ellipsoid.WGS84.transformPositionToScaledSpace(tileCenter)
-    const horizonOcclusionPoint = new Cartesian3(scaledCenter.x, scaledCenter.y, occlusionHeight)
+    const scaledCenter = this.ellipsoid.transformPositionToScaledSpace(
+      tileCenter
+    );
+    const horizonOcclusionPoint = new Cartesian3(
+      scaledCenter.x,
+      scaledCenter.y,
+      occlusionHeight * Math.sign(tileCenter.z)
+    );
 
-    let orientedBoundingBox = null
-    let boundingSphere: BoundingSphere
+    let orientedBoundingBox = null;
+    let boundingSphere: BoundingSphere;
     if (tileRect.width < CMath.PI_OVER_TWO + CMath.EPSILON5) {
       // @ts-ignore
-      orientedBoundingBox = OrientedBoundingBox.fromRectangle(tileRect, minHeight, maxHeight)
+      orientedBoundingBox = OrientedBoundingBox.fromRectangle(
+        tileRect,
+        minHeight,
+        maxHeight
+      );
       // @ts-ignore
-      boundingSphere = BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox)
+      boundingSphere = BoundingSphere.fromOrientedBoundingBox(
+        orientedBoundingBox
+      );
     } else {
       // If our bounding rectangle spans >= 90º, we should use the entire globe as a bounding sphere.
       boundingSphere = new BoundingSphere(
         Cartesian3.ZERO,
         // radius (seems to be max height of Earth terrain?)
         6379792.481506292
-      )
+      );
     }
-
-    const triangles = new Uint16Array(mesh.triangles)
-
-    // @ts-ignore
-
-    // If our tile has greater than ~1º size
-    if (tileRect.width > 0.02) {
-      // We need to be able to specify a minimum number of triangles...
-      return this.emptyHeightmap(64)
-    }
-
-    const quantizedVertices = new Uint16Array(
-      //verts
-      [...xvals, ...yvals, ...heights]
-    )
+    console.log(orientedBoundingBox, boundingSphere);
 
     // SE NW NE
     // NE NW SE
@@ -240,52 +274,47 @@ class MapboxTerrainProvider {
       minimumHeight: minHeight,
       maximumHeight: maxHeight,
       quantizedVertices,
-      indices : triangles,
-      // @ts-ignore
+      indices: triangles,
       boundingSphere,
-      // @ts-ignore
       orientedBoundingBox,
-      // @ts-ignore
       horizonOcclusionPoint,
       westIndices,
       southIndices,
       eastIndices,
       northIndices,
-      westSkirtHeight : skirtHeight,
-      southSkirtHeight : skirtHeight,
-      eastSkirtHeight : skirtHeight,
-      northSkirtHeight : skirtHeight,
+      westSkirtHeight: skirtHeight,
+      southSkirtHeight: skirtHeight,
+      eastSkirtHeight: skirtHeight,
+      northSkirtHeight: skirtHeight,
       childTileMask: 15
-    })
+    });
   }
 
-  async requestTileGeometry (x, y, z) {
-    try {
-      const mapboxTile = await this.requestMapboxTile(x,y,z)
-      return mapboxTile
-    } catch(err) {
-      console.log(err)
-    }
+  emptyHeightmap(samples) {
+    return new HeightmapTerrainData({
+      buffer: new Uint8Array(Array(samples * samples).fill(0)),
+      width: samples,
+      height: samples
+    });
   }
 
-  getLevelMaximumGeometricError (level) {
-    const levelZeroMaximumGeometricError = TerrainProvider
-      .getEstimatedLevelZeroGeometricErrorForAHeightmap(
-        this.tilingScheme.ellipsoid,
-        65,
-        this.tilingScheme.getNumberOfXTilesAtLevel(0)
-      )
+  getLevelMaximumGeometricError(level) {
+    const levelZeroMaximumGeometricError = TerrainProvider.getEstimatedLevelZeroGeometricErrorForAHeightmap(
+      this.tilingScheme.ellipsoid,
+      65,
+      this.tilingScheme.getNumberOfXTilesAtLevel(0)
+    );
 
     // Scalar to control overzooming
     // also seems to control zooming for imagery layers
-    const scalar = this.highResolution ? 8 : 4
+    const scalar = 1; // this.highResolution ? 8 : 4;
 
-    return levelZeroMaximumGeometricError / (1 << level)
+    return levelZeroMaximumGeometricError / scalar / (1 << level);
   }
 
   getTileDataAvailable(x, y, z) {
-    return z <= 15
+    return z <= 15;
   }
 }
 
-export default MapboxTerrainProvider
+export default MartiniTerrainProvider;

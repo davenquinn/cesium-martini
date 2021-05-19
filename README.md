@@ -23,6 +23,7 @@ for future rich geoscience visualizations.
 
 This package is listed on NPM as `@macrostrat/cesium-martini`. It can be installed
 using the command
+
 ```
 npm install --save @macrostrat/cesium-martini
 ```
@@ -63,7 +64,7 @@ Recently, the [MARTINI](https://github.com/mapbox/martini) project by
 [Vladimir Agafonkin](https://agafonkin.com/) at Mapbox demonstrated an
 [elegant algorithmic approach](https://observablehq.com/@mourner/martin-real-time-rtin-terrain-mesh)
 that sidesteps this issue.
-MARTINI meshes based on right-triangulated irregular networks (RTIN, *Evans et al., 1998*)
+MARTINI meshes based on right-triangulated irregular networks (RTIN, _Evans et al., 1998_)
 and is far quicker than the traditional TIN generation techniques.
 
 A speedy meshing algorithm allows this data-preparation step to be handled
@@ -94,7 +95,7 @@ of Cesium would provide some guidance here.
 
 ### Basic bugs and issues
 
-- [ ] Right now, there is a bug with rendering tile bounding boxes when
+- [x] Right now, there is a bug with rendering tile bounding boxes when
       `terrainExaggeration: 1` in the Cesium viewer
       (setting `terrainExaggeration: 1.00001` works just fine). I'm uncertain why
       this is occurring, but it is likely easily fixable.
@@ -103,7 +104,7 @@ of Cesium would provide some guidance here.
 - [ ] The increased resolution of `@2x` tiles can be used, but doing so forces
       the loading of high resolution overlay imagery across a wide area, so using them is not
       advisable until broader changes are made to the renderer.
-- [ ] Tiles at low zoom levels must to respond to the curvature of the Earth,
+- [x] Tiles at low zoom levels must to respond to the curvature of the Earth,
       while their topographic range often yields only two triangles covering the entire
       tile. For zoom levels less than 5, we currently fall back to a basic height field,
       but we should ideally have a method that subdivides triangles to densify
@@ -115,9 +116,19 @@ of Cesium would provide some guidance here.
 
 - [Mapbox MARTINI](https://github.com/mapbox/martini)
 - [MARTINI algorithm explanation](https://observablehq.com/@mourner/martin-real-time-rtin-terrain-mesh)
-- [Evans et al., *Right-triangulated irregular networks*, 1998](https://www.cs.ubc.ca/~will/papers/rtin.pdf)
+- [Evans et al., _Right-triangulated irregular networks_, 1998](https://www.cs.ubc.ca/~will/papers/rtin.pdf)
   ([journal link](https://link.springer.com/article/10.1007/s00453-001-0006-x))
 - [Cesium quantized mesh specification](https://github.com/CesiumGS/quantized-mesh)
 - [Quantized mesh viewer](https://github.com/heremaps/quantized-mesh-viewer)
 - [Cesium globe materials example](https://sandcastle.cesium.com/?src=Globe%20Materials.html)
 - [Cesium sky/atmosphere example](https://sandcastle.cesium.com/?src=Sky%20Atmosphere.html)
+
+## Changelog
+
+### `[1.1.0]`: May 2021
+
+- Fixed a bug with tile occlusion south of the equator for high-detail tiles
+- A quicker and more robust mesh-densification algorithm for low zoom levels
+- More configurability with options like `detailScalar` and `minimumErrorLevel`.
+- Updated README and examples
+- Uses web workers for rapid tile generation off the main thread
