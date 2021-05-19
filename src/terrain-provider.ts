@@ -241,7 +241,7 @@ class MartiniTerrainProvider<TerrainProvider> {
     const horizonOcclusionPoint = new Cartesian3(
       scaledCenter.x,
       scaledCenter.y,
-      occlusionHeight
+      occlusionHeight * Math.sign(tileCenter.z)
     );
 
     let orientedBoundingBox = null;
