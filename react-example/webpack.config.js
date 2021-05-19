@@ -4,7 +4,7 @@ const DotenvPlugin = require("dotenv-webpack");
 const { DefinePlugin } = require("webpack");
 const path = require("path");
 
-const cesiumSource = "node_modules/cesium/Source";
+const cesiumSource = "../node_modules/cesium/Source";
 const cesiumWorkers = "../Build/CesiumUnminified/Workers";
 
 module.exports = {
@@ -29,21 +29,16 @@ module.exports = {
         test: /\.(png|svg)$/,
         use: ["file-loader"]
       },
-      { test: /\.css$/, use: ["style-loader", "css-loader"] },
+      { test: /\.css$/, use: ["style-loader", "css-loader"] }
       // All output '.js' files will have any sourcemaps re-processed by 'source-map-loader'.
-      {
-        enforce: "pre",
-        test: /\.js$/,
-        loader: "source-map-loader"
-      }
     ]
   },
   node: {
     fs: "empty"
   },
-  entry: "./example/index.ts",
+  entry: "./index.ts",
   output: {
-    path: path.join(__dirname, "example-dist"),
+    path: path.join(__dirname, "dist"),
     sourcePrefix: ""
   },
   amd: {
@@ -51,7 +46,7 @@ module.exports = {
     toUrlUndefined: true
   },
   plugins: [
-    new HtmlWebpackPlugin({ title: "Mapbox / Cesium Terrain" }),
+    new HtmlWebpackPlugin({ title: "Mapbox / Resium Terrain" }),
     new CopyPlugin([
       { from: path.join(cesiumSource, cesiumWorkers), to: "Workers" }
     ]),
@@ -59,7 +54,7 @@ module.exports = {
     new CopyPlugin([
       { from: path.join(cesiumSource, "Widgets"), to: "Widgets" }
     ]),
-    new DotenvPlugin(),
+    new DotenvPlugin({ path: "../.env" }),
     new DefinePlugin({
       // Define relative base path in cesium for loading assets
       CESIUM_BASE_URL: JSON.stringify("/")

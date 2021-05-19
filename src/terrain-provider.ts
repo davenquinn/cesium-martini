@@ -3,21 +3,21 @@ import {
   Rectangle,
   Ellipsoid,
   WebMercatorTilingScheme,
-  TerrainProvider,
   Math as CMath,
   Event as CEvent,
   Cartesian3,
   BoundingSphere,
   QuantizedMeshTerrainData,
   HeightmapTerrainData,
-  // @ts-ignore
   OrientedBoundingBox,
+  TerrainProvider,
   Credit
 } from "cesium";
 const ndarray = require("ndarray");
 import Martini from "@mapbox/martini";
 import WorkerFarm from "./worker-farm";
 import { TerrainWorkerInput, decodeTerrain } from "./worker";
+import TilingScheme from "cesium/Source/Core/TilingScheme";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
@@ -58,7 +58,7 @@ const loadImage = url =>
     img.src = url;
   });
 
-class MartiniTerrainProvider {
+class MartiniTerrainProvider<TerrainProvider> {
   martini: any;
   hasWaterMask = false;
   hasVertexNormals = false;
@@ -67,7 +67,7 @@ class MartiniTerrainProvider {
   readyPromise: Promise<boolean>;
   availability = null;
   errorEvent = new CEvent();
-  tilingScheme: TerrainProvider["tilingScheme"];
+  tilingScheme: TilingScheme;
   ellipsoid: Ellipsoid;
   accessToken: string;
   format: ImageFormat;
@@ -78,7 +78,7 @@ class MartiniTerrainProvider {
   levelOfDetailScalar: number | null = null;
   useWorkers: boolean = true;
   contextQueue: CanvasRef[];
-  minError: number = 10;
+  minError: number = 10.0;
 
   RADIUS_SCALAR = 1.0;
 
@@ -89,13 +89,13 @@ class MartiniTerrainProvider {
     this.tileSize = this.highResolution ? 512 : 256;
     this.contextQueue = [];
 
-    this.levelOfDetailScalar = (opts.detailScalar ?? 4) + CMath.EPSILON5;
+    this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
 
     this.martini = new Martini(this.tileSize + 1);
     this.ready = true;
     this.readyPromise = Promise.resolve(true);
     this.accessToken = opts.accessToken;
-    this.minError = opts.minimumErrorLevel ?? 10;
+    this.minError = opts.minimumErrorLevel ?? 10.0;
 
     this.errorEvent.addEventListener(console.log, this);
     this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84;
@@ -184,11 +184,8 @@ class MartiniTerrainProvider {
       } else {
         res = decodeTerrain(params, []);
       }
+
       const tile = this.createQuantizedMeshData(x, y, z, res);
-      console.log(tile);
-      if (tile._mesh == null) {
-        throw "Had an error!";
-      }
       return tile;
     } catch (err) {
       console.log(err);
@@ -232,7 +229,7 @@ class MartiniTerrainProvider {
     // cosine relationship to scale height in ellipsoid-relative coordinates
     const occlusionHeight = (1 + ellipsoidHeight) / cosWidth;
 
-    const scaledCenter = Ellipsoid.WGS84.transformPositionToScaledSpace(
+    const scaledCenter = this.ellipsoid.transformPositionToScaledSpace(
       tileCenter
     );
     const horizonOcclusionPoint = new Cartesian3(
@@ -240,8 +237,6 @@ class MartiniTerrainProvider {
       scaledCenter.y,
       occlusionHeight
     );
-
-    console.log(horizonOcclusionPoint);
 
     let orientedBoundingBox = null;
     let boundingSphere: BoundingSphere;
@@ -281,11 +276,8 @@ class MartiniTerrainProvider {
       maximumHeight: maxHeight,
       quantizedVertices,
       indices: triangles,
-      // @ts-ignore
       boundingSphere,
-      // @ts-ignore
       orientedBoundingBox,
-      // @ts-ignore
       horizonOcclusionPoint,
       westIndices,
       southIndices,
