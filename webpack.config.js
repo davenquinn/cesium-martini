@@ -41,11 +41,6 @@ module.exports = {
   node: {
     fs: "empty"
   },
-  entry: "./example/index.ts",
-  output: {
-    path: path.join(__dirname, "example-dist"),
-    sourcePrefix: ""
-  },
   amd: {
     // Enable webpack-friendly use of require in Cesium
     toUrlUndefined: true

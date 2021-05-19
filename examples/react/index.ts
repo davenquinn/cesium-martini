@@ -54,3 +54,4 @@ function CesiumView() {
   );
 }
 render(h(CesiumView), document.body);
+document.title = "Mapbox / Resium Terrain Example";
