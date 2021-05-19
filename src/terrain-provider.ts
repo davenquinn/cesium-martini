@@ -95,7 +95,7 @@ class MartiniTerrainProvider<TerrainProvider> {
     this.ready = true;
     this.readyPromise = Promise.resolve(true);
     this.accessToken = opts.accessToken;
-    this.minError = opts.minimumErrorLevel ?? 10.0;
+    this.minError = opts.minimumErrorLevel ?? 0.1;
 
     this.errorEvent.addEventListener(console.log, this);
     this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84;
