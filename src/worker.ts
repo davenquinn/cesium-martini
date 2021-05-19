@@ -1,15 +1,16 @@
 import {
   mapboxTerrainToGrid,
   createQuantizedMeshData,
-  QuantizedMeshOptions,
+  QuantizedMeshOptions
 } from "./worker-util";
 import ndarray from "ndarray";
-import Martini from "@mapbox/martini";
+import Martini from "../martini/index.js";
 import "regenerator-runtime";
 // https://github.com/CesiumGS/cesium/blob/1.76/Source/WorkersES6/createVerticesFromQuantizedTerrainMesh.js
 
 export interface TerrainWorkerInput extends QuantizedMeshOptions {
-  imageData: Uint8Array;
+  imageData: Uint8ClampedArray;
+  maxLength: number | null;
   x: number;
   y: number;
   z: number;
@@ -36,13 +37,13 @@ function decodeTerrain(
 
   // get a mesh (vertices and triangles indices) for a 10m error
   console.log(`Error level: ${errorLevel}`);
-  const mesh = tile.getMesh(errorLevel);
+  const mesh = tile.getMesh(errorLevel, parameters.maxLength);
   return createQuantizedMeshData(tile, mesh, tileSize);
 }
 
 export { decodeTerrain };
 
-self.onmessage = function (msg) {
+self.onmessage = function(msg) {
   const { id, payload } = msg.data;
   if (id == null) return;
   console.log("Worker recieved message", msg.data);

@@ -14,7 +14,7 @@ import {
   Credit
 } from "cesium";
 const ndarray = require("ndarray");
-import Martini from "@mapbox/martini";
+import Martini from "../martini/index.js";
 import WorkerFarm from "./worker-farm";
 import { TerrainWorkerInput, decodeTerrain } from "./worker";
 import TilingScheme from "cesium/Source/Core/TilingScheme";
@@ -78,7 +78,7 @@ class MartiniTerrainProvider<TerrainProvider> {
   levelOfDetailScalar: number | null = null;
   useWorkers: boolean = true;
   contextQueue: CanvasRef[];
-  minError: number = 10.0;
+  minError: number = 0.1;
 
   RADIUS_SCALAR = 1.0;
 
@@ -166,10 +166,17 @@ class MartiniTerrainProvider<TerrainProvider> {
       const px = this.getPixels(image);
       const pixelData = px.data;
 
-      console.log(x, y, z);
+      const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
+      let maxLength = null;
+      // More than a degree or so
+      if (tileRect.height > 0.01) {
+        // We need to be able to specify a minimum number of triangles...
+        maxLength = 20 * (z + 1);
+      }
 
       const params: TerrainWorkerInput = {
         imageData: pixelData,
+        maxLength,
         x,
         y,
         z,
@@ -185,7 +192,7 @@ class MartiniTerrainProvider<TerrainProvider> {
         res = decodeTerrain(params, []);
       }
 
-      const tile = this.createQuantizedMeshData(x, y, z, res);
+      const tile = this.createQuantizedMeshData(tileRect, err, res);
       return tile;
     } catch (err) {
       console.log(err);
@@ -202,7 +209,7 @@ class MartiniTerrainProvider<TerrainProvider> {
     );
   }
 
-  createQuantizedMeshData(x, y, z, workerOutput) {
+  createQuantizedMeshData(tileRect, errorLevel, workerOutput) {
     const {
       minimumHeight: minHeight,
       maximumHeight: maxHeight,
@@ -214,10 +221,9 @@ class MartiniTerrainProvider<TerrainProvider> {
       northIndices
     } = workerOutput;
 
-    const err = this.getErrorLevel(z);
+    const err = errorLevel;
     const skirtHeight = err * 5;
 
-    const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
     const tileCenter = Cartographic.toCartesian(Rectangle.center(tileRect));
     // Need to get maximum distance at zoom level
     // tileRect.width is given in radians
@@ -259,14 +265,7 @@ class MartiniTerrainProvider<TerrainProvider> {
         6379792.481506292
       );
     }
-
-    // @ts-ignore
-
-    // If our tile has greater than ~1º size
-    if (tileRect.width > 0.04 && triangles.length < 500) {
-      // We need to be able to specify a minimum number of triangles...
-      return this.emptyHeightmap(64);
-    }
+    console.log(orientedBoundingBox, boundingSphere);
 
     // SE NW NE
     // NE NW SE

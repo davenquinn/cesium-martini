@@ -17,7 +17,7 @@
     "@mapbox/martini": "^0.2.0",
     "@types/ndarray": "^1.0.7",
     "axios": "^0.19.2",
-    "cesium": "^1.77.0",
+    "cesium": "^1.81.0",
     "core-js": "^2.6.12",
     "get-pixels": "^3.3.2"
   },
