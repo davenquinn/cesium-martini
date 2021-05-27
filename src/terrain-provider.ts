@@ -11,7 +11,7 @@ import {
   HeightmapTerrainData,
   OrientedBoundingBox,
   TerrainProvider,
-  Credit
+  Credit,
 } from "cesium";
 const ndarray = require("ndarray");
 import Martini from "../martini/index.js";
@@ -24,7 +24,7 @@ import TilingScheme from "cesium/Source/Core/TilingScheme";
 enum ImageFormat {
   WEBP = "webp",
   PNG = "png",
-  PNGRAW = "pngraw"
+  PNGRAW = "pngraw",
 }
 
 interface TileCoordinates {
@@ -49,17 +49,16 @@ interface CanvasRef {
   context: CanvasRenderingContext2D;
 }
 
-const loadImage = url =>
+const loadImage = (url) =>
   new Promise((resolve, reject) => {
     const img = new Image();
     img.addEventListener("load", () => resolve(img));
-    img.addEventListener("error", err => reject(err));
+    img.addEventListener("error", (err) => reject(err));
     img.crossOrigin = "anonymous";
     img.src = url;
   });
 
 class MartiniTerrainProvider<TerrainProvider> {
-  martini: any;
   hasWaterMask = false;
   hasVertexNormals = false;
   credit = new Credit("Mapbox");
@@ -91,7 +90,6 @@ class MartiniTerrainProvider<TerrainProvider> {
 
     this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
 
-    this.martini = new Martini(this.tileSize + 1);
     this.ready = true;
     this.readyPromise = Promise.resolve(true);
     this.accessToken = opts.accessToken;
@@ -105,7 +103,7 @@ class MartiniTerrainProvider<TerrainProvider> {
     this.tilingScheme = new WebMercatorTilingScheme({
       numberOfLevelZeroTilesX: 1,
       numberOfLevelZeroTilesY: 1,
-      ellipsoid: this.ellipsoid
+      ellipsoid: this.ellipsoid,
     });
   }
 
@@ -119,7 +117,7 @@ class MartiniTerrainProvider<TerrainProvider> {
       const context = canvas.getContext("2d");
       ctx = {
         canvas,
-        context
+        context,
       };
     }
     return ctx;
@@ -146,7 +144,8 @@ class MartiniTerrainProvider<TerrainProvider> {
   }
 
   requestTileGeometry(x, y, z, request) {
-    if (this.inProgressWorkers > 5) return undefined;
+    const maxWorkers = this.highResolution ? 2 : 5;
+    if (this.inProgressWorkers > maxWorkers) return undefined;
     this.inProgressWorkers += 1;
     return this.processTile(x, y, z).finally(() => {
       this.inProgressWorkers -= 1;
@@ -162,17 +161,15 @@ class MartiniTerrainProvider<TerrainProvider> {
 
     try {
       const url = this.buildTileURL({ x, y, z });
-      const image = await loadImage(url);
-      const px = this.getPixels(image);
+      let image = await loadImage(url);
+      let px = this.getPixels(image);
       const pixelData = px.data;
 
       const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
-      let maxLength = null;
-      // More than a degree or so
-      if (tileRect.height > 0.01) {
-        // We need to be able to specify a minimum number of triangles...
-        maxLength = 20 * (z + 1);
-      }
+      let maxLength = Math.min(
+        Math.round(this.tileSize / 32) * (z + 1),
+        this.tileSize
+      );
 
       const params: TerrainWorkerInput = {
         imageData: pixelData,
@@ -182,7 +179,7 @@ class MartiniTerrainProvider<TerrainProvider> {
         z,
         errorLevel: err,
         ellipsoidRadius: this.ellipsoid.maximumRadius,
-        tileSize: this.tileSize
+        tileSize: this.tileSize,
       };
 
       let res;
@@ -192,8 +189,9 @@ class MartiniTerrainProvider<TerrainProvider> {
         res = decodeTerrain(params, []);
       }
 
-      const tile = this.createQuantizedMeshData(tileRect, err, res);
-      return tile;
+      image = undefined;
+      px = undefined;
+      return this.createQuantizedMeshData(tileRect, err, res);
     } catch (err) {
       console.log(err);
       // return undefined
@@ -218,7 +216,7 @@ class MartiniTerrainProvider<TerrainProvider> {
       westIndices,
       southIndices,
       eastIndices,
-      northIndices
+      northIndices,
     } = workerOutput;
 
     const err = errorLevel;
@@ -235,9 +233,8 @@ class MartiniTerrainProvider<TerrainProvider> {
     // cosine relationship to scale height in ellipsoid-relative coordinates
     const occlusionHeight = (1 + ellipsoidHeight) / cosWidth;
 
-    const scaledCenter = this.ellipsoid.transformPositionToScaledSpace(
-      tileCenter
-    );
+    const scaledCenter =
+      this.ellipsoid.transformPositionToScaledSpace(tileCenter);
     const horizonOcclusionPoint = new Cartesian3(
       scaledCenter.x,
       scaledCenter.y,
@@ -254,9 +251,8 @@ class MartiniTerrainProvider<TerrainProvider> {
         maxHeight
       );
       // @ts-ignore
-      boundingSphere = BoundingSphere.fromOrientedBoundingBox(
-        orientedBoundingBox
-      );
+      boundingSphere =
+        BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox);
     } else {
       // If our bounding rectangle spans >= 90º, we should use the entire globe as a bounding sphere.
       boundingSphere = new BoundingSphere(
@@ -286,7 +282,7 @@ class MartiniTerrainProvider<TerrainProvider> {
       southSkirtHeight: skirtHeight,
       eastSkirtHeight: skirtHeight,
       northSkirtHeight: skirtHeight,
-      childTileMask: 15
+      childTileMask: 15,
     });
   }
 
@@ -294,20 +290,21 @@ class MartiniTerrainProvider<TerrainProvider> {
     return new HeightmapTerrainData({
       buffer: new Uint8Array(Array(samples * samples).fill(0)),
       width: samples,
-      height: samples
+      height: samples,
     });
   }
 
   getLevelMaximumGeometricError(level) {
-    const levelZeroMaximumGeometricError = TerrainProvider.getEstimatedLevelZeroGeometricErrorForAHeightmap(
-      this.tilingScheme.ellipsoid,
-      65,
-      this.tilingScheme.getNumberOfXTilesAtLevel(0)
-    );
+    const levelZeroMaximumGeometricError =
+      TerrainProvider.getEstimatedLevelZeroGeometricErrorForAHeightmap(
+        this.tilingScheme.ellipsoid,
+        65,
+        this.tilingScheme.getNumberOfXTilesAtLevel(0)
+      );
 
     // Scalar to control overzooming
     // also seems to control zooming for imagery layers
-    const scalar = 1; // this.highResolution ? 8 : 4;
+    const scalar = this.highResolution ? 2 : 1;
 
     return levelZeroMaximumGeometricError / scalar / (1 << level);
   }

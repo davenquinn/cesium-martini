@@ -1,7 +1,7 @@
 import {
   mapboxTerrainToGrid,
   createQuantizedMeshData,
-  QuantizedMeshOptions
+  QuantizedMeshOptions,
 } from "./worker-util";
 import ndarray from "ndarray";
 import Martini from "../martini/index.js";
@@ -16,6 +16,8 @@ export interface TerrainWorkerInput extends QuantizedMeshOptions {
   z: number;
 }
 
+let martini = null;
+
 function decodeTerrain(
   parameters: TerrainWorkerInput,
   transferableObjects: any[]
@@ -29,7 +31,8 @@ function decodeTerrain(
     0
   );
 
-  const martini = new Martini(tileSize + 1);
+  // Tile size must be maintained through the life of the worker
+  martini ??= new Martini(tileSize + 1);
 
   const terrain = mapboxTerrainToGrid(pixels);
 
@@ -43,7 +46,7 @@ function decodeTerrain(
 
 export { decodeTerrain };
 
-self.onmessage = function(msg) {
+self.onmessage = function (msg) {
   const { id, payload } = msg.data;
   if (id == null) return;
   console.log("Worker recieved message", msg.data);
