@@ -125,6 +125,7 @@ of Cesium would provide some guidance here.
 
 ## TODO
 
+- Fix memory leak with ArrayBuffer allocation
 - Make compatible with Mapbox's new `terrain-dem` tileset if possible
 - Better masking of unavailable tiles
 - Bathymetry option
@@ -135,7 +136,7 @@ Pull requests for any and all of these priorities are appreciated!
 
 ## Changelog
 
-### `[1.1.1]`: May 2021
+### `[1.1.2]`: May 2021
 
 - Fixed a bug with loading high-resolution tiles
 - Added a `skipOddLevels` option that significantly reduces the load of zooming through many terrain levels.
