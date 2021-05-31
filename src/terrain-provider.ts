@@ -41,6 +41,7 @@ interface MapboxTerrainOpts {
   workerURL: string;
   urlTemplate: string;
   detailScalar?: number;
+  skipOddLevels?: boolean;
   minimumErrorLevel?: number;
 }
 
@@ -76,6 +77,7 @@ class MartiniTerrainProvider<TerrainProvider> {
   inProgressWorkers: number = 0;
   levelOfDetailScalar: number | null = null;
   useWorkers: boolean = true;
+  skipOddLevels: boolean = true;
   contextQueue: CanvasRef[];
   minError: number = 0.1;
 
@@ -85,6 +87,7 @@ class MartiniTerrainProvider<TerrainProvider> {
   constructor(opts: MapboxTerrainOpts = {}) {
     //this.martini = new Martini(257);
     this.highResolution = opts.highResolution ?? false;
+    this.skipOddLevels = opts.skipOddLevels ?? true;
     this.tileSize = this.highResolution ? 512 : 256;
     this.contextQueue = [];
 
@@ -220,7 +223,7 @@ class MartiniTerrainProvider<TerrainProvider> {
     } = workerOutput;
 
     const err = errorLevel;
-    const skirtHeight = err * 5;
+    const skirtHeight = err * 20;
 
     const tileCenter = Cartographic.toCartesian(Rectangle.center(tileRect));
     // Need to get maximum distance at zoom level
@@ -311,7 +314,10 @@ class MartiniTerrainProvider<TerrainProvider> {
 
   getTileDataAvailable(x, y, z) {
     const maxZoom = this.highResolution ? 14 : 15;
-    return z <= maxZoom;
+    if (z == maxZoom) return true;
+    if (z % 2 == 1 && this.skipOddLevels) return false;
+    if (z > maxZoom) return false;
+    return true;
   }
 }
 
