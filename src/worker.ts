@@ -6,6 +6,7 @@ import {
 import ndarray from "ndarray";
 import Martini from "../martini/index.js";
 import "regenerator-runtime";
+import { resolve } from "path/posix";
 // https://github.com/CesiumGS/cesium/blob/1.76/Source/WorkersES6/createVerticesFromQuantizedTerrainMesh.js
 
 export interface TerrainWorkerInput extends QuantizedMeshOptions {
@@ -51,14 +52,16 @@ self.onmessage = function (msg) {
   if (id == null) return;
   console.log("Worker recieved message", msg.data);
   let objects = [];
+  let res = null;
   try {
-    const res = decodeTerrain(payload);
+    res = decodeTerrain(payload);
     objects.push(res.indices.buffer);
     objects.push(res.quantizedVertices.buffer);
     self.postMessage({ id, payload: res }, objects);
   } catch (err) {
     self.postMessage({ id, err: err.toString() });
   } finally {
+    res = null;
     objects = null;
   }
 };
