@@ -310,7 +310,8 @@ class MartiniTerrainProvider<TerrainProvider> {
   }
 
   getTileDataAvailable(x, y, z) {
-    return z <= 15;
+    const maxZoom = this.highResolution ? 14 : 15;
+    return z <= maxZoom;
   }
 }
 

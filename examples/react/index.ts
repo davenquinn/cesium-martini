@@ -16,7 +16,7 @@ const terrainProvider = new TerrainProvider({
   hasVertexNormals: false,
   hasWaterMask: false,
   accessToken: process.env.MAPBOX_API_TOKEN,
-  highResolution: false,
+  highResolution: true,
   credit: "Mapbox",
 });
 
