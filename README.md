@@ -101,7 +101,7 @@ of Cesium would provide some guidance here.
       this is occurring, but it is likely easily fixable.
 - [x] High-resolution `@2x` tiles can be requested, but an indexing error
       prevents them from rendering properly.
-- [ ] The increased resolution of `@2x` tiles can be used, but doing so forces
+- [x] The increased resolution of `@2x` tiles can be used, but doing so forces
       the loading of high resolution overlay imagery across a wide area, so using them is not
       advisable until broader changes are made to the renderer.
 - [x] Tiles at low zoom levels must to respond to the curvature of the Earth,
@@ -123,7 +123,25 @@ of Cesium would provide some guidance here.
 - [Cesium globe materials example](https://sandcastle.cesium.com/?src=Globe%20Materials.html)
 - [Cesium sky/atmosphere example](https://sandcastle.cesium.com/?src=Sky%20Atmosphere.html)
 
+## TODO
+
+- Fix memory leak with ArrayBuffer allocation
+- Make compatible with Mapbox's new `terrain-dem` tileset if possible
+- Better masking of unavailable tiles
+- Bathymetry option
+- Tie to hillshade generator so the same tiles are loaded
+- Caps for poles
+
+Pull requests for any and all of these priorities are appreciated!
+
 ## Changelog
+
+### `[1.1.2]`: May 2021
+
+- Fixed a bug with loading high-resolution tiles
+- Added a `skipOddLevels` option that significantly reduces the load of zooming through many terrain levels.
+  This is enabled by default.
+- Greatly increase skirt height
 
 ### `[1.1.0]`: May 2021
 
