@@ -50,9 +50,7 @@ class WorkerFarm {
   }
 
   async scheduleTask(params, transferableObjects) {
-    console.log(params);
-    let res = await sendMessage(this.worker, params, transferableObjects);
-    return res;
+    return await sendMessage(this.worker, params, transferableObjects);
   }
 }
 

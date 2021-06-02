@@ -39,7 +39,6 @@ function decodeTerrain(
   const tile = martini.createTile(terrain);
 
   // get a mesh (vertices and triangles indices) for a 10m error
-  console.log(`Error level: ${errorLevel}`);
   const mesh = tile.getMesh(errorLevel, parameters.maxLength);
   return createQuantizedMeshData(tile, mesh, tileSize);
 }
@@ -49,16 +48,17 @@ export { decodeTerrain };
 self.onmessage = function (msg) {
   const { id, payload } = msg.data;
   if (id == null) return;
-  console.log("Worker recieved message", msg.data);
   let objects = [];
+  let res = null;
   try {
-    const res = decodeTerrain(payload);
+    res = decodeTerrain(payload);
     objects.push(res.indices.buffer);
     objects.push(res.quantizedVertices.buffer);
     self.postMessage({ id, payload: res }, objects);
   } catch (err) {
     self.postMessage({ id, err: err.toString() });
   } finally {
+    res = null;
     objects = null;
   }
 };
