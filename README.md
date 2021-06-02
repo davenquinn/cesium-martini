@@ -125,7 +125,6 @@ of Cesium would provide some guidance here.
 
 ## TODO
 
-- Fix memory leak with ArrayBuffer allocation
 - Make compatible with Mapbox's new `terrain-dem` tileset if possible
 - Better masking of unavailable tiles
 - Bathymetry option
@@ -135,6 +134,10 @@ of Cesium would provide some guidance here.
 Pull requests for any and all of these priorities are appreciated!
 
 ## Changelog
+
+### `[1.1.3]`: June 2021
+
+- Fix memory leak where `ArrayBuffer`s were retained due to console logging.
 
 ### `[1.1.2]`: May 2021
 

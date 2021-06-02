@@ -141,6 +141,7 @@ class MartiniTerrainProvider<TerrainProvider> {
   buildTileURL(tileCoords: TileCoordinates) {
     const { z, x, y } = tileCoords;
     const hires = this.highResolution ? "@2x" : "";
+    // SKU token generation code: https://github.com/mapbox/mapbox-gl-js/blob/79f594fab76d932ccea0f171709718568af660e3/src/util/sku_token.js#L23
     // https://api.mapbox.com/raster/v1/mapbox.mapbox-terrain-dem-v1/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}&sku=101EX9Btybqbj
     return `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
   }
@@ -159,7 +160,6 @@ class MartiniTerrainProvider<TerrainProvider> {
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
     const err = this.getErrorLevel(z);
-    const hires = this.highResolution ? "@2x" : "";
 
     try {
       const url = this.buildTileURL({ x, y, z });

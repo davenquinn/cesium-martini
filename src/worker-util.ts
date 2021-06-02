@@ -37,7 +37,7 @@ export interface QuantizedMeshOptions {
   ellipsoidRadius: number;
 }
 
-function createQuantizedMeshData(tile, mesh, tileSize = 256) {
+function createQuantizedMeshData(tile, mesh, tileSize) {
   const xvals = [];
   const yvals = [];
   const heightMeters = [];
@@ -68,7 +68,7 @@ function createQuantizedMeshData(tile, mesh, tileSize = 256) {
   const maxHeight = Math.max.apply(this, heightMeters);
   const minHeight = Math.min.apply(this, heightMeters);
 
-  const heights = heightMeters.map(d => {
+  const heights = heightMeters.map((d) => {
     if (maxHeight - minHeight < 1) return 0;
     return (d - minHeight) * (32767.0 / (maxHeight - minHeight));
   });
@@ -90,7 +90,7 @@ function createQuantizedMeshData(tile, mesh, tileSize = 256) {
     westIndices,
     southIndices,
     eastIndices,
-    northIndices
+    northIndices,
   };
 }
 
