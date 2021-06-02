@@ -113,7 +113,6 @@ class MartiniTerrainProvider<TerrainProvider> {
   getCanvas(): CanvasRef {
     let ctx = this.contextQueue.pop();
     if (ctx == null) {
-      //console.log("Creating new canvas element");
       const canvas = document.createElement("canvas");
       canvas.width = this.tileSize;
       canvas.height = this.tileSize;
@@ -196,7 +195,6 @@ class MartiniTerrainProvider<TerrainProvider> {
       px = undefined;
       return this.createQuantizedMeshData(tileRect, err, res);
     } catch (err) {
-      console.log(err);
       // return undefined
       const v = Math.max(32 - 4 * z, 4);
       return this.emptyHeightmap(v);
@@ -264,7 +262,6 @@ class MartiniTerrainProvider<TerrainProvider> {
         6379792.481506292
       );
     }
-    console.log(orientedBoundingBox, boundingSphere);
 
     // SE NW NE
     // NE NW SE
