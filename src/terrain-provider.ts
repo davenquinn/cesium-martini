@@ -195,6 +195,7 @@ class MartiniTerrainProvider<TerrainProvider> {
       px = undefined;
       return this.createQuantizedMeshData(tileRect, err, res);
     } catch (err) {
+      console.log(err);
       // return undefined
       const v = Math.max(32 - 4 * z, 4);
       return this.emptyHeightmap(v);
