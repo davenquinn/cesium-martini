@@ -165,7 +165,7 @@ class MartiniTerrainProvider<TerrainProvider> {
       const url = this.buildTileURL({ x, y, z });
       let image = await loadImage(url);
       let px = this.getPixels(image);
-      const pixelData = px.data;
+      let pixelData = px.data;
 
       const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
       let maxLength = Math.min(
@@ -190,7 +190,7 @@ class MartiniTerrainProvider<TerrainProvider> {
       } else {
         res = decodeTerrain(params, []);
       }
-
+      pixelData = undefined;
       image = undefined;
       px = undefined;
       return this.createQuantizedMeshData(tileRect, err, res);
