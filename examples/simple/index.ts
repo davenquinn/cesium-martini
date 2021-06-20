@@ -23,9 +23,9 @@ let satellite = new Cesium.MapboxImageryProvider({
 });
 
 var opts = {
-  terrainProvider,
-  // imageryProvider : Cesium.createWorldImagery({
-  //   style : Cesium.IonWorldImageryStyle.AERIAL
+  //terrainProvider,
+  // imageryProvider: Cesium.createWorldImagery({
+  //   style: Cesium.IonWorldImageryStyle.AERIAL,
   // }),
   // @ts-ignore
   skyBox: false as false,
@@ -35,7 +35,7 @@ var opts = {
   animation: false,
   timeline: false,
   // Makes cesium not render high fps all the time
-  //requestRenderMode : true,
+  requestRenderMode: true,
   // Use full scene buffer (respecting pixel ratio) if this is false
   useBrowserRecommendedResolution: false,
   // We have a bug in the tile bounding box calculation somewhere.
@@ -68,6 +68,7 @@ var viewer = new Cesium.Viewer(domID, opts);
 //viewer.scene.globe._surface._tileProvider._debug.wireframe = true
 // @ts-ignore
 viewer.extend(Cesium.viewerCesiumInspectorMixin);
+viewer.scene.debugShowFramesPerSecond = true;
 
 var extent = Cesium.Cartesian3.fromDegrees(clon, clat - 0.3, 8000);
 viewer.camera.setView({

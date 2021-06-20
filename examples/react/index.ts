@@ -1,6 +1,6 @@
 import "core-js/stable";
 import "regenerator-runtime/runtime";
-
+import "./main.css";
 import "cesiumSource/Widgets/widgets.css";
 const Cesium: any = require("cesiumSource/Cesium");
 // Import @types/cesium to use along with CesiumJS
@@ -37,7 +37,10 @@ const SatelliteLayer = (props) => {
 function Inspector() {
   const { viewer } = useCesium();
   useEffect(() => {
-    viewer?.extend(Cesium.viewerCesiumInspectorMixin, {});
+    if (viewer == null) return;
+    viewer.extend(Cesium.viewerCesiumInspectorMixin, {});
+    viewer.scene.requestRenderMode = true;
+    viewer.scene.debugShowFramesPerSecond = true;
   }, [viewer]);
   return null;
 }
