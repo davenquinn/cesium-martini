@@ -12,6 +12,7 @@ import {
   OrientedBoundingBox,
   TerrainProvider,
   Credit,
+  Matrix3,
 } from "cesium";
 const ndarray = require("ndarray");
 import Martini from "../martini/index.js";
@@ -43,6 +44,7 @@ interface MapboxTerrainOpts {
   detailScalar?: number;
   skipOddLevels?: boolean;
   minimumErrorLevel?: number;
+  useWorkers?: boolean;
 }
 
 interface CanvasRef {
@@ -73,7 +75,7 @@ class MartiniTerrainProvider<TerrainProvider> {
   format: ImageFormat;
   highResolution: boolean;
   tileSize: number = 256;
-  workerFarm: WorkerFarm;
+  workerFarm: WorkerFarm | null = null;
   inProgressWorkers: number = 0;
   levelOfDetailScalar: number | null = null;
   useWorkers: boolean = true;
@@ -89,6 +91,7 @@ class MartiniTerrainProvider<TerrainProvider> {
     this.highResolution = opts.highResolution ?? false;
     this.skipOddLevels = opts.skipOddLevels ?? true;
     this.tileSize = this.highResolution ? 512 : 256;
+    this.useWorkers = opts.useWorkers ?? true;
     this.contextQueue = [];
 
     this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
@@ -101,7 +104,9 @@ class MartiniTerrainProvider<TerrainProvider> {
     this.errorEvent.addEventListener(console.log, this);
     this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84;
     this.format = opts.format ?? ImageFormat.WEBP;
-    this.workerFarm = new WorkerFarm();
+    if (this.useWorkers) {
+      this.workerFarm = new WorkerFarm();
+    }
 
     this.tilingScheme = new WebMercatorTilingScheme({
       numberOfLevelZeroTilesX: 1,
@@ -160,7 +165,6 @@ class MartiniTerrainProvider<TerrainProvider> {
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
     const err = this.getErrorLevel(z);
-
     try {
       const url = this.buildTileURL({ x, y, z });
       let image = await loadImage(url);
@@ -185,7 +189,7 @@ class MartiniTerrainProvider<TerrainProvider> {
       };
 
       let res;
-      if (this.useWorkers) {
+      if (this.workerFarm != null) {
         res = await this.workerFarm.scheduleTask(params, [pixelData.buffer]);
       } else {
         res = decodeTerrain(params, []);
@@ -224,50 +228,37 @@ class MartiniTerrainProvider<TerrainProvider> {
     const err = errorLevel;
     const skirtHeight = err * 20;
 
-    const tileCenter = Cartographic.toCartesian(Rectangle.center(tileRect));
+    const center = Rectangle.center(tileRect);
     // Need to get maximum distance at zoom level
     // tileRect.width is given in radians
     // cos of half-tile-width allows us to use right-triangle relationship
     const cosWidth = Math.cos(tileRect.width / 2); // half tile width since our ref point is at the center
     // scale max height to max ellipsoid radius
     // ... it might be better to use the radius of the entire
-    const ellipsoidHeight = maxHeight / this.ellipsoid.maximumRadius;
     // cosine relationship to scale height in ellipsoid-relative coordinates
-    const occlusionHeight = (1 + ellipsoidHeight) / cosWidth;
-
-    const scaledCenter =
-      this.ellipsoid.transformPositionToScaledSpace(tileCenter);
-    const horizonOcclusionPoint = new Cartesian3(
-      scaledCenter.x,
-      scaledCenter.y,
-      occlusionHeight * Math.sign(tileCenter.z)
+    const occlusionPoint = new Cartographic(
+      center.longitude,
+      center.latitude,
+      maxHeight / cosWidth
     );
 
-    let orientedBoundingBox = null;
-    let boundingSphere: BoundingSphere;
-    if (tileRect.width < CMath.PI_OVER_TWO + CMath.EPSILON5) {
-      // @ts-ignore
-      orientedBoundingBox = OrientedBoundingBox.fromRectangle(
-        tileRect,
-        minHeight,
-        maxHeight
-      );
-      // @ts-ignore
-      boundingSphere =
-        BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox);
-    } else {
-      // If our bounding rectangle spans >= 90º, we should use the entire globe as a bounding sphere.
-      boundingSphere = new BoundingSphere(
-        Cartesian3.ZERO,
-        // radius (seems to be max height of Earth terrain?)
-        6379792.481506292
-      );
-    }
+    const horizonOcclusionPoint = this.ellipsoid.transformPositionToScaledSpace(
+      Cartographic.toCartesian(occlusionPoint)
+    );
+
+    let orientedBoundingBox = OrientedBoundingBox.fromRectangle(
+      tileRect,
+      minHeight,
+      maxHeight,
+      this.tilingScheme.ellipsoid
+    );
+    let boundingSphere =
+      BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox);
 
     // SE NW NE
     // NE NW SE
 
-    return new QuantizedMeshTerrainData({
+    const result = new QuantizedMeshTerrainData({
       minimumHeight: minHeight,
       maximumHeight: maxHeight,
       quantizedVertices,
@@ -285,6 +276,10 @@ class MartiniTerrainProvider<TerrainProvider> {
       northSkirtHeight: skirtHeight,
       childTileMask: 15,
     });
+
+    //if (tileRect.width < 0.01) debugger;
+    //return this.emptyHeightmap(2);
+    return result;
   }
 
   emptyHeightmap(samples) {

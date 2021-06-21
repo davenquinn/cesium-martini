@@ -4,7 +4,7 @@ import "cesiumSource/Widgets/widgets.css";
 import "./main.css";
 const Cesium: any = require("cesiumSource/Cesium");
 // Import @types/cesium to use along with CesiumJS
-import { Viewer, Ion, IonResource } from "cesium";
+import { Viewer, Ion, IonResource, createWorldTerrain } from "cesium";
 import TerrainProvider from "../../dist";
 
 const terrainProvider = new TerrainProvider({
@@ -23,7 +23,7 @@ let satellite = new Cesium.MapboxImageryProvider({
 });
 
 var opts = {
-  //terrainProvider,
+  terrainProvider, //: createWorldTerrain(),
   // imageryProvider: Cesium.createWorldImagery({
   //   style: Cesium.IonWorldImageryStyle.AERIAL,
   // }),
@@ -39,7 +39,7 @@ var opts = {
   // Use full scene buffer (respecting pixel ratio) if this is false
   useBrowserRecommendedResolution: false,
   // We have a bug in the tile bounding box calculation somewhere.
-  terrainExaggeration: 1.000001,
+  terrainExaggeration: 1.0,
   imageryProvider: satellite,
 };
 
