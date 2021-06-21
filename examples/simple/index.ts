@@ -62,6 +62,8 @@ const rect = Cesium.Rectangle.fromDegrees(
 //Cesium.Camera.DEFAULT_VIEW_OFFSET = new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-10), 1)
 
 var viewer = new Cesium.Viewer(domID, opts);
+// Quadtree props: don't preload ancestors
+viewer.scene.globe._surface.preloadAncestors = false;
 
 //viewer.scene.globe.baseColor = Cesium.Color.AQUAMARINE
 // @ts-ignore

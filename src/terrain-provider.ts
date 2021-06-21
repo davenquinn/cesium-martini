@@ -215,10 +215,10 @@ class MartiniTerrainProvider<TerrainProvider> {
 
   createQuantizedMeshData(tileRect, errorLevel, workerOutput) {
     const {
-      minimumHeight: minHeight,
-      maximumHeight: maxHeight,
+      minimumHeight,
+      maximumHeight,
       quantizedVertices,
-      indices: triangles,
+      indices,
       westIndices,
       southIndices,
       eastIndices,
@@ -239,7 +239,7 @@ class MartiniTerrainProvider<TerrainProvider> {
     const occlusionPoint = new Cartographic(
       center.longitude,
       center.latitude,
-      maxHeight / cosWidth
+      maximumHeight / cosWidth
     );
 
     const horizonOcclusionPoint = this.ellipsoid.transformPositionToScaledSpace(
@@ -248,8 +248,8 @@ class MartiniTerrainProvider<TerrainProvider> {
 
     let orientedBoundingBox = OrientedBoundingBox.fromRectangle(
       tileRect,
-      minHeight,
-      maxHeight,
+      minimumHeight,
+      maximumHeight,
       this.tilingScheme.ellipsoid
     );
     let boundingSphere =
@@ -259,10 +259,10 @@ class MartiniTerrainProvider<TerrainProvider> {
     // NE NW SE
 
     const result = new QuantizedMeshTerrainData({
-      minimumHeight: minHeight,
-      maximumHeight: maxHeight,
+      minimumHeight,
+      maximumHeight,
       quantizedVertices,
-      indices: triangles,
+      indices,
       boundingSphere,
       orientedBoundingBox,
       horizonOcclusionPoint,
@@ -276,6 +276,8 @@ class MartiniTerrainProvider<TerrainProvider> {
       northSkirtHeight: skirtHeight,
       childTileMask: 15,
     });
+
+    //debugger;
 
     //if (tileRect.width < 0.01) debugger;
     //return this.emptyHeightmap(2);

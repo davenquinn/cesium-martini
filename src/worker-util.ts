@@ -31,6 +31,27 @@ function mapboxTerrainToGrid(png: ndarray<number>) {
   return terrain;
 }
 
+function testMeshData() {
+  return {
+    minimumHeight: -100,
+    maximumHeight: 2101,
+    quantizedVertices: new Uint16Array([
+      // order is SW NW SE NE
+      // longitude
+      0, 0, 32767, 32767,
+      // latitude
+      0, 32767, 0, 32767,
+      // heights
+      16384, 0, 32767, 16384,
+    ]),
+    indices: new Uint16Array([0, 3, 1, 0, 2, 3]),
+    westIndices: [0, 1],
+    southIndices: [0, 1],
+    eastIndices: [2, 3],
+    northIndices: [1, 3],
+  };
+}
+
 export interface QuantizedMeshOptions {
   errorLevel: number;
   tileSize: number;
@@ -46,18 +67,25 @@ function createQuantizedMeshData(tile, mesh, tileSize) {
   const eastIndices = [];
   const westIndices = [];
 
+  let minimumHeight = Infinity;
+  let maximumHeight = -Infinity;
+  const scalar = 32768.0 / tileSize;
+
   for (let ix = 0; ix < mesh.vertices.length / 2; ix++) {
     const vertexIx = ix;
     const px = mesh.vertices[ix * 2];
     const py = mesh.vertices[ix * 2 + 1];
-    heightMeters.push(tile.terrain[py * (tileSize + 1) + px]);
+    const height = tile.terrain[py * (tileSize + 1) + px];
+    if (height > maximumHeight) maximumHeight = height;
+    if (height < minimumHeight) minimumHeight = height;
+
+    heightMeters.push(height);
 
     if (py == 0) northIndices.push(vertexIx);
     if (py == tileSize) southIndices.push(vertexIx);
     if (px == 0) westIndices.push(vertexIx);
     if (px == tileSize) eastIndices.push(vertexIx);
 
-    const scalar = 32768.0 / tileSize;
     let xv = px * scalar;
     let yv = (tileSize - py) * scalar;
 
@@ -65,12 +93,11 @@ function createQuantizedMeshData(tile, mesh, tileSize) {
     yvals.push(yv);
   }
 
-  const maxHeight = Math.max.apply(this, heightMeters);
-  const minHeight = Math.min.apply(this, heightMeters);
+  const heightRange = maximumHeight - minimumHeight;
 
   const heights = heightMeters.map((d) => {
-    if (maxHeight - minHeight < 1) return 0;
-    return (d - minHeight) * (32767.0 / (maxHeight - minHeight));
+    if (heightRange < 1) return 0;
+    return (d - minimumHeight) * (32767.0 / heightRange);
   });
 
   const triangles = new Uint16Array(mesh.triangles);
@@ -83,8 +110,8 @@ function createQuantizedMeshData(tile, mesh, tileSize) {
   // NE NW SE
 
   return {
-    minimumHeight: minHeight,
-    maximumHeight: maxHeight,
+    minimumHeight,
+    maximumHeight,
     quantizedVertices,
     indices: triangles,
     westIndices,
