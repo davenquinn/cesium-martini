@@ -79,7 +79,7 @@ class MartiniTerrainProvider<TerrainProvider> {
   inProgressWorkers: number = 0;
   levelOfDetailScalar: number | null = null;
   useWorkers: boolean = true;
-  skipOddLevels: boolean = true;
+  skipOddLevels: boolean = false;
   contextQueue: CanvasRef[];
   minError: number = 0.1;
 
@@ -258,7 +258,7 @@ class MartiniTerrainProvider<TerrainProvider> {
     // SE NW NE
     // NE NW SE
 
-    const result = new QuantizedMeshTerrainData({
+    let result = new QuantizedMeshTerrainData({
       minimumHeight,
       maximumHeight,
       quantizedVertices,

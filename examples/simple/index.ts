@@ -14,6 +14,7 @@ const terrainProvider = new TerrainProvider({
   requestWaterMask: false,
   accessToken: process.env.MAPBOX_API_TOKEN,
   highResolution: false,
+  skipOddLevels: false,
 });
 
 let satellite = new Cesium.MapboxImageryProvider({
@@ -63,7 +64,6 @@ const rect = Cesium.Rectangle.fromDegrees(
 
 var viewer = new Cesium.Viewer(domID, opts);
 // Quadtree props: don't preload ancestors
-viewer.scene.globe._surface.preloadAncestors = false;
 
 //viewer.scene.globe.baseColor = Cesium.Color.AQUAMARINE
 // @ts-ignore
