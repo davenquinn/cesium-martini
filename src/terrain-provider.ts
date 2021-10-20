@@ -89,7 +89,7 @@ class MartiniTerrainProvider<TerrainProvider> {
   constructor(opts: MapboxTerrainOpts = {}) {
     //this.martini = new Martini(257);
     this.highResolution = opts.highResolution ?? false;
-    this.skipOddLevels = opts.skipOddLevels ?? true;
+    this.skipOddLevels = opts.skipOddLevels ?? false;
     this.tileSize = this.highResolution ? 512 : 256;
     this.useWorkers = opts.useWorkers ?? true;
     this.contextQueue = [];
@@ -239,7 +239,8 @@ class MartiniTerrainProvider<TerrainProvider> {
     const occlusionPoint = new Cartographic(
       center.longitude,
       center.latitude,
-      maximumHeight / cosWidth
+      (maximumHeight * 2) / cosWidth
+      // Scaling factor of two just to be sure.
     );
 
     const horizonOcclusionPoint = this.ellipsoid.transformPositionToScaledSpace(
