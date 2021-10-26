@@ -2,12 +2,15 @@
 //const canvas = new OffscreenCanvas(256, 256);
 //const ctx = canvas.getContext("2d");
 
-function mapboxTerrainToGrid(png: ndarray<number>) {
+function mapboxTerrainToGrid(png: ndarray<number>, interval?: number, offset?: number) {
   // maybe we should do this on the GPU using REGL?
   // but that would require GPU -> CPU -> GPU
   const gridSize = png.shape[0] + 1;
   const terrain = new Float32Array(gridSize * gridSize);
   const tileSize = png.shape[0];
+
+  interval = interval ?? 0.1;
+  offset = offset ?? -10000;
 
   // decode terrain values
   for (let y = 0; y < tileSize; y++) {
@@ -17,7 +20,7 @@ function mapboxTerrainToGrid(png: ndarray<number>) {
       const g = png.get(x, yc, 1);
       const b = png.get(x, yc, 2);
       terrain[y * gridSize + x] =
-        (r * 256 * 256) / 10.0 + (g * 256.0) / 10.0 + b / 10.0 - 10000.0;
+        (r * 256 * 256) * interval + (g * 256.0) * interval + b * interval + offset;
     }
   }
   // backfill right and bottom borders

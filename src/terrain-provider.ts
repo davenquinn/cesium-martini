@@ -13,6 +13,8 @@ import {
   TerrainProvider,
   Credit,
   Matrix3,
+  Resource,
+  defaultValue
 } from "cesium";
 const ndarray = require("ndarray");
 import Martini from "../martini/index.js";
@@ -35,9 +37,10 @@ interface TileCoordinates {
 }
 
 interface MapboxTerrainOpts {
+  url?: string;
   format: ImageFormat;
   ellipsoid?: Ellipsoid;
-  accessToken: string;
+  accessToken?: string;
   highResolution?: boolean;
   workerURL: string;
   urlTemplate: string;
@@ -45,6 +48,9 @@ interface MapboxTerrainOpts {
   skipOddLevels?: boolean;
   minimumErrorLevel?: number;
   useWorkers?: boolean;
+  interval?: number;
+  offset?: number;
+  maxZoom?: number;
 }
 
 interface CanvasRef {
@@ -82,15 +88,26 @@ class MartiniTerrainProvider<TerrainProvider> {
   skipOddLevels: boolean = false;
   contextQueue: CanvasRef[];
   minError: number = 0.1;
+  resource: Resource = null;
+  interval: number;
+  offset: number;
+  maxZoom: number;
 
   RADIUS_SCALAR = 1.0;
 
   // @ts-ignore
   constructor(opts: MapboxTerrainOpts = {}) {
     //this.martini = new Martini(257);
+
+    // highResolution could be removed and simply provided in a templated uri during instantiation
+    this.resource = Resource.createIfNeeded(defaultValue(opts.url, 'https://api.mapbox.com/v4/mapbox.terrain-rgb/{z}/{x}/{y}{highResolution}.{format}'));
+
     this.highResolution = opts.highResolution ?? false;
     this.skipOddLevels = opts.skipOddLevels ?? false;
     this.tileSize = this.highResolution ? 512 : 256;
+    this.maxZoom = opts.maxZoom ?? 15;
+    this.interval = opts.interval ?? 0.1;
+    this.offset = opts.offset ?? -10000;
     this.useWorkers = opts.useWorkers ?? true;
     this.contextQueue = [];
 
@@ -106,6 +123,12 @@ class MartiniTerrainProvider<TerrainProvider> {
     this.format = opts.format ?? ImageFormat.WEBP;
     if (this.useWorkers) {
       this.workerFarm = new WorkerFarm();
+    }
+
+    if (this.accessToken) {
+      this.resource.setQueryParameters({
+        access_token: this.accessToken
+      });
     }
 
     this.tilingScheme = new WebMercatorTilingScheme({
@@ -144,11 +167,20 @@ class MartiniTerrainProvider<TerrainProvider> {
   }
 
   buildTileURL(tileCoords: TileCoordinates) {
-    const { z, x, y } = tileCoords;
-    const hires = this.highResolution ? "@2x" : "";
     // SKU token generation code: https://github.com/mapbox/mapbox-gl-js/blob/79f594fab76d932ccea0f171709718568af660e3/src/util/sku_token.js#L23
-    // https://api.mapbox.com/raster/v1/mapbox.mapbox-terrain-dem-v1/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}&sku=101EX9Btybqbj
-    return `https://api.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
+
+    // reverseY for TMS tiling (https://gist.github.com/tmcw/4954720)
+    // See tiling schemes here: https://www.maptiler.com/google-maps-coordinates-tile-bounds-projection/
+    const { z, y } = tileCoords;
+    return this.resource.getDerivedResource({
+      templateValues: {
+        ...tileCoords,
+        reverseY: Math.pow(2, z) - y - 1,
+        format: this.format,
+        highResolution: this.highResolution ? "@2x" : "",
+      },
+      preserveQueryParameters: true,
+    }).getUrlComponent(true);
   }
 
   requestTileGeometry(x, y, z, request) {
@@ -186,6 +218,8 @@ class MartiniTerrainProvider<TerrainProvider> {
         errorLevel: err,
         ellipsoidRadius: this.ellipsoid.maximumRadius,
         tileSize: this.tileSize,
+        interval: this.interval,
+        offset: this.offset,
       };
 
       let res;
@@ -309,7 +343,7 @@ class MartiniTerrainProvider<TerrainProvider> {
   }
 
   getTileDataAvailable(x, y, z) {
-    const maxZoom = this.highResolution ? 14 : 15;
+    const maxZoom = this.highResolution ? this.maxZoom - 1 : this.maxZoom;
     if (z == maxZoom) return true;
     if (z % 2 == 1 && this.skipOddLevels) return false;
     if (z > maxZoom) return false;
