@@ -50,6 +50,7 @@ interface MapboxTerrainOpts {
   useWorkers?: boolean;
   interval?: number;
   offset?: number;
+  maxZoom?: number;
 }
 
 interface CanvasRef {
@@ -90,6 +91,7 @@ class MartiniTerrainProvider<TerrainProvider> {
   resource: Resource = null;
   interval: number;
   offset: number;
+  maxZoom: number;
 
   RADIUS_SCALAR = 1.0;
 
@@ -103,6 +105,7 @@ class MartiniTerrainProvider<TerrainProvider> {
     this.highResolution = opts.highResolution ?? false;
     this.skipOddLevels = opts.skipOddLevels ?? false;
     this.tileSize = this.highResolution ? 512 : 256;
+    this.maxZoom = opts.maxZoom ?? 15;
     this.interval = opts.interval ?? 0.1;
     this.offset = opts.offset ?? -10000;
     this.useWorkers = opts.useWorkers ?? true;
@@ -340,7 +343,7 @@ class MartiniTerrainProvider<TerrainProvider> {
   }
 
   getTileDataAvailable(x, y, z) {
-    const maxZoom = this.highResolution ? 14 : 15;
+    const maxZoom = this.highResolution ? this.maxZoom - 1 : this.maxZoom;
     if (z == maxZoom) return true;
     if (z % 2 == 1 && this.skipOddLevels) return false;
     if (z > maxZoom) return false;
