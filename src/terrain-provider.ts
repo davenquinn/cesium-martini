@@ -21,51 +21,27 @@ import Martini from "../martini/index.js";
 import WorkerFarm from "./worker-farm";
 import { TerrainWorkerInput, decodeTerrain } from "./worker";
 import TilingScheme from "cesium/Source/Core/TilingScheme";
+import { HeightmapResource } from './heightmap-resource';
+import MapboxTerrainResource from "./mapbox-resource.js";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
-enum ImageFormat {
-  WEBP = "webp",
-  PNG = "png",
-  PNGRAW = "pngraw",
-}
-
-interface TileCoordinates {
+export interface TileCoordinates {
   x: number;
   y: number;
   z: number;
 }
 
-interface MapboxTerrainOpts {
-  url?: string;
-  format: ImageFormat;
+interface MartiniTerrainOpts {
+  resource: HeightmapResource;
   ellipsoid?: Ellipsoid;
-  accessToken?: string;
-  highResolution?: boolean;
   workerURL: string;
-  urlTemplate: string;
   detailScalar?: number;
-  skipOddLevels?: boolean;
   minimumErrorLevel?: number;
-  useWorkers?: boolean;
+  maxWorkers?: number;
   interval?: number;
   offset?: number;
-  maxZoom?: number;
 }
-
-interface CanvasRef {
-  canvas: HTMLCanvasElement;
-  context: CanvasRenderingContext2D;
-}
-
-const loadImage = (url) =>
-  new Promise((resolve, reject) => {
-    const img = new Image();
-    img.addEventListener("load", () => resolve(img));
-    img.addEventListener("error", (err) => reject(err));
-    img.crossOrigin = "anonymous";
-    img.src = url;
-  });
 
 class MartiniTerrainProvider<TerrainProvider> {
   hasWaterMask = false;
@@ -77,58 +53,37 @@ class MartiniTerrainProvider<TerrainProvider> {
   errorEvent = new CEvent();
   tilingScheme: TilingScheme;
   ellipsoid: Ellipsoid;
-  accessToken: string;
-  format: ImageFormat;
-  highResolution: boolean;
-  tileSize: number = 256;
   workerFarm: WorkerFarm | null = null;
   inProgressWorkers: number = 0;
   levelOfDetailScalar: number | null = null;
-  useWorkers: boolean = true;
-  skipOddLevels: boolean = false;
-  contextQueue: CanvasRef[];
+  maxWorkers: number = 5;
   minError: number = 0.1;
-  resource: Resource = null;
+  
+  resource: HeightmapResource = null;
   interval: number;
   offset: number;
-  maxZoom: number;
 
   RADIUS_SCALAR = 1.0;
 
   // @ts-ignore
-  constructor(opts: MapboxTerrainOpts = {}) {
+  constructor(opts: MartiniTerrainOpts = {}) {
     //this.martini = new Martini(257);
+    this.resource = opts.resource;
 
-    // highResolution could be removed and simply provided in a templated uri during instantiation
-    this.resource = Resource.createIfNeeded(defaultValue(opts.url, 'https://api.mapbox.com/v4/mapbox.terrain-rgb/{z}/{x}/{y}{highResolution}.{format}'));
-
-    this.highResolution = opts.highResolution ?? false;
-    this.skipOddLevels = opts.skipOddLevels ?? false;
-    this.tileSize = this.highResolution ? 512 : 256;
-    this.maxZoom = opts.maxZoom ?? 15;
     this.interval = opts.interval ?? 0.1;
     this.offset = opts.offset ?? -10000;
-    this.useWorkers = opts.useWorkers ?? true;
-    this.contextQueue = [];
+    this.maxWorkers = opts.maxWorkers ?? 5;
 
     this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
 
     this.ready = true;
     this.readyPromise = Promise.resolve(true);
-    this.accessToken = opts.accessToken;
     this.minError = opts.minimumErrorLevel ?? 0.1;
 
     this.errorEvent.addEventListener(console.log, this);
     this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84;
-    this.format = opts.format ?? ImageFormat.WEBP;
-    if (this.useWorkers) {
+    if (this.maxWorkers > 0) {
       this.workerFarm = new WorkerFarm();
-    }
-
-    if (this.accessToken) {
-      this.resource.setQueryParameters({
-        access_token: this.accessToken
-      });
     }
 
     this.tilingScheme = new WebMercatorTilingScheme({
@@ -138,54 +93,8 @@ class MartiniTerrainProvider<TerrainProvider> {
     });
   }
 
-  getCanvas(): CanvasRef {
-    let ctx = this.contextQueue.pop();
-    if (ctx == null) {
-      const canvas = document.createElement("canvas");
-      canvas.width = this.tileSize;
-      canvas.height = this.tileSize;
-      const context = canvas.getContext("2d");
-      ctx = {
-        canvas,
-        context,
-      };
-    }
-    return ctx;
-  }
-
-  getPixels(img: HTMLImageElement | HTMLCanvasElement): ImageData {
-    const canvasRef = this.getCanvas();
-    const { context } = canvasRef;
-    //context.scale(1, -1);
-    // Chrome appears to vertically flip the image for reasons that are unclear
-    // We can make it work in Chrome by drawing the image upside-down at this step.
-    context.drawImage(img, 0, 0, this.tileSize, this.tileSize);
-    const pixels = context.getImageData(0, 0, this.tileSize, this.tileSize);
-    context.clearRect(0, 0, this.tileSize, this.tileSize);
-    this.contextQueue.push(canvasRef);
-    return pixels;
-  }
-
-  buildTileURL(tileCoords: TileCoordinates) {
-    // SKU token generation code: https://github.com/mapbox/mapbox-gl-js/blob/79f594fab76d932ccea0f171709718568af660e3/src/util/sku_token.js#L23
-
-    // reverseY for TMS tiling (https://gist.github.com/tmcw/4954720)
-    // See tiling schemes here: https://www.maptiler.com/google-maps-coordinates-tile-bounds-projection/
-    const { z, y } = tileCoords;
-    return this.resource.getDerivedResource({
-      templateValues: {
-        ...tileCoords,
-        reverseY: Math.pow(2, z) - y - 1,
-        format: this.format,
-        highResolution: this.highResolution ? "@2x" : "",
-      },
-      preserveQueryParameters: true,
-    }).getUrlComponent(true);
-  }
-
   requestTileGeometry(x, y, z, request) {
-    const maxWorkers = this.highResolution ? 2 : 5;
-    if (this.inProgressWorkers > maxWorkers) return undefined;
+    if (this.inProgressWorkers > this.maxWorkers) return undefined;
     this.inProgressWorkers += 1;
     return this.processTile(x, y, z).finally(() => {
       this.inProgressWorkers -= 1;
@@ -198,15 +107,14 @@ class MartiniTerrainProvider<TerrainProvider> {
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
     const err = this.getErrorLevel(z);
     try {
-      const url = this.buildTileURL({ x, y, z });
-      let image = await loadImage(url);
-      let px = this.getPixels(image);
+      const { tileSize, getTilePixels } = this.resource;
+      let px = await getTilePixels({ x, y, z });
       let pixelData = px.data;
 
       const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
       let maxLength = Math.min(
-        Math.round(this.tileSize / 32) * (z + 1),
-        this.tileSize
+        Math.round(tileSize / 32) * (z + 1),
+        tileSize
       );
 
       const params: TerrainWorkerInput = {
@@ -217,7 +125,7 @@ class MartiniTerrainProvider<TerrainProvider> {
         z,
         errorLevel: err,
         ellipsoidRadius: this.ellipsoid.maximumRadius,
-        tileSize: this.tileSize,
+        tileSize,
         interval: this.interval,
         offset: this.offset,
       };
@@ -229,7 +137,6 @@ class MartiniTerrainProvider<TerrainProvider> {
         res = decodeTerrain(params, []);
       }
       pixelData = undefined;
-      image = undefined;
       px = undefined;
       return this.createQuantizedMeshData(tileRect, err, res);
     } catch (err) {
@@ -337,17 +244,13 @@ class MartiniTerrainProvider<TerrainProvider> {
 
     // Scalar to control overzooming
     // also seems to control zooming for imagery layers
-    const scalar = this.highResolution ? 2 : 1;
+    const scalar = this.resource.tileSize / 256;
 
     return levelZeroMaximumGeometricError / scalar / (1 << level);
   }
 
   getTileDataAvailable(x, y, z) {
-    const maxZoom = this.highResolution ? this.maxZoom - 1 : this.maxZoom;
-    if (z == maxZoom) return true;
-    if (z % 2 == 1 && this.skipOddLevels) return false;
-    if (z > maxZoom) return false;
-    return true;
+    return this.resource.getTileDataAvailable({ x, y, z });
   }
 }
 
