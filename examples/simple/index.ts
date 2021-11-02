@@ -5,19 +5,15 @@ import "./main.css";
 const Cesium: any = require("cesiumSource/Cesium");
 // Import @types/cesium to use along with CesiumJS
 import { Viewer, Ion, IonResource, createWorldTerrain } from "cesium";
-import TerrainProvider, { MapboxTerrainResource } from "../../dist";
+import TerrainProvider from "../../dist";
 
 // @ts-ignore
-const terrainResource = new MapboxTerrainResource({
-  accessToken: process.env.MAPBOX_API_TOKEN,
-  highResolution: false,
-  skipOddLevels: false,
-});
-
 const terrainProvider = new TerrainProvider({
-  resource: terrainResource,
   requestVertexNormals: false,
   requestWaterMask: false,
+  accessToken: process.env.MAPBOX_API_TOKEN,
+  skipOddLevels: false,
+  highResolution: false,
 });
 
 let satellite = new Cesium.MapboxImageryProvider({

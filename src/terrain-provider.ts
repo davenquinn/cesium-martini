@@ -5,16 +5,12 @@ import {
   WebMercatorTilingScheme,
   Math as CMath,
   Event as CEvent,
-  Cartesian3,
   BoundingSphere,
   QuantizedMeshTerrainData,
   HeightmapTerrainData,
   OrientedBoundingBox,
   TerrainProvider,
   Credit,
-  Matrix3,
-  Resource,
-  defaultValue
 } from "cesium";
 const ndarray = require("ndarray");
 import Martini from "../martini/index.js";
@@ -22,7 +18,7 @@ import WorkerFarm from "./worker-farm";
 import { TerrainWorkerInput, decodeTerrain } from "./worker";
 import TilingScheme from "cesium/Source/Core/TilingScheme";
 import { HeightmapResource } from './heightmap-resource';
-import MapboxTerrainResource from "./mapbox-resource.js";
+import MapboxTerrainResource, { MapboxTerrainResourceOpts } from "./mapbox-resource";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
@@ -35,7 +31,7 @@ export interface TileCoordinates {
 interface MartiniTerrainOpts {
   resource: HeightmapResource;
   ellipsoid?: Ellipsoid;
-  workerURL: string;
+  // workerURL: string;
   detailScalar?: number;
   minimumErrorLevel?: number;
   maxWorkers?: number;
@@ -43,7 +39,7 @@ interface MartiniTerrainOpts {
   offset?: number;
 }
 
-class MartiniTerrainProvider<TerrainProvider> {
+export class MartiniTerrainProvider<TerrainProvider> {
   hasWaterMask = false;
   hasVertexNormals = false;
   credit = new Credit("Mapbox");
@@ -254,4 +250,15 @@ class MartiniTerrainProvider<TerrainProvider> {
   }
 }
 
-export default MartiniTerrainProvider;
+
+type MapboxTerrainOpts = Omit<MartiniTerrainOpts, 'resource'> & MapboxTerrainResourceOpts;
+
+export default class MapboxTerrainProvider extends MartiniTerrainProvider<TerrainProvider> {
+  constructor(opts: MapboxTerrainOpts = {}) {
+    const resource = new MapboxTerrainResource(opts);
+    super({
+      ...opts,
+      resource,
+    });
+  }
+}
