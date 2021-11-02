@@ -29,8 +29,10 @@ export type DecodeRgbFunction = (r: number, g: number, b: number, a: number) => 
  */
  const functionParser = /^(?:(?:function\s+\w+\s*)?\(?(?<params>(?:\w+\s*,?\s*)*)\)?\s*(?:=>)?\s*\{?(?<body>(?:.|[\s\n])+?)\}?)$/gi;
 
- // mapbox Terrain-RGB default decode function
- const defaultDecodeRgb = (r, g, b, a) => (r * 256 * 256) * 0.1 + (g * 256.0) * 0.1 + b * 0.1 - 10000;
+ /** Mapbox Terrain-RGB default decode function
+  *  (r * 256 * 256) / 10 + (g * 256) / 10 + b / 10 - 10000
+  */
+ const defaultDecodeRgb = (r, g, b, a) => (r * 6553.6) + (g * 25.6) + b * 0.1 - 10000;
  
  /**
   * @param fn DecodeRgbFunction callable or string representation of a DecodeRgbFunction.
