@@ -7,14 +7,13 @@ const Cesium: any = require("cesiumSource/Cesium");
 import { Viewer, Ion, IonResource, createWorldTerrain } from "cesium";
 import TerrainProvider from "../../dist";
 
+// @ts-ignore
 const terrainProvider = new TerrainProvider({
-  // @ts-ignore
-  url: IonResource.fromAssetId("1"),
   requestVertexNormals: false,
   requestWaterMask: false,
   accessToken: process.env.MAPBOX_API_TOKEN,
-  highResolution: false,
   skipOddLevels: false,
+  highResolution: false,
 });
 
 let satellite = new Cesium.MapboxImageryProvider({
