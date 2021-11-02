@@ -1,10 +1,12 @@
 import { Resource } from "cesium";
 import { TileCoordinates } from "./terrain-provider";
+import { DecodeRgbFunction } from "./types";
 
 export interface HeightmapResource {
   tileSize: number;
   getTilePixels: (coords: TileCoordinates) => Promise<ImageData>;
   getTileDataAvailable: (coords: TileCoordinates) => boolean;
+  decodeRgb: DecodeRgbFunction | null;
 }
 
 interface CanvasRef {
@@ -26,6 +28,7 @@ export interface DefaultHeightmapResourceOpts {
   skipOddLevels?: boolean;
   maxZoom?: number;
   tileSize?: number;
+  decodeRgb?: DecodeRgbFunction;
 }
 
 export class DefaultHeightmapResource implements HeightmapResource {
@@ -34,6 +37,7 @@ export class DefaultHeightmapResource implements HeightmapResource {
   maxZoom: number;
   skipOddLevels: boolean = false;
   contextQueue: CanvasRef[];
+  decodeRgb: DecodeRgbFunction = null;
 
   constructor(opts: DefaultHeightmapResourceOpts = {}) {
     if (opts.url) {
@@ -43,6 +47,7 @@ export class DefaultHeightmapResource implements HeightmapResource {
     this.tileSize = opts.tileSize ?? 256;
     this.maxZoom = opts.maxZoom ?? 15;
     this.contextQueue = [];
+    this.decodeRgb = opts.decodeRgb;
   }
 
   getCanvas(): CanvasRef {

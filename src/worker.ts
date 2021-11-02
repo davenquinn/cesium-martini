@@ -6,6 +6,7 @@ import {
 import ndarray from "ndarray";
 import Martini from "../martini/index.js";
 import "regenerator-runtime";
+import { DecodeRgbFunction, getDecodeRgbFunction } from "./utils";
 // https://github.com/CesiumGS/cesium/blob/1.76/Source/WorkersES6/createVerticesFromQuantizedTerrainMesh.js
 
 export interface TerrainWorkerInput extends QuantizedMeshOptions {
@@ -14,25 +15,18 @@ export interface TerrainWorkerInput extends QuantizedMeshOptions {
   x: number;
   y: number;
   z: number;
-
-  /**
-   * Terrain-RGB interval (default 0.1)
-   */
-  interval?: number;
-
-  /**
-   * Terrain-RGB offset (default -10000)
-   */
-  offset?: number;
+  decodeRgb?: DecodeRgbFunction | null;
 }
 
 let martini = null;
+
+const functionCache = {};
 
 function decodeTerrain(
   parameters: TerrainWorkerInput,
   transferableObjects: any[]
 ) {
-  const { imageData, tileSize = 256, errorLevel, interval, offset } = parameters;
+  const { imageData, tileSize = 256, errorLevel, decodeRgb } = parameters;
 
   const pixels = ndarray(
     new Uint8Array(imageData),
@@ -44,7 +38,7 @@ function decodeTerrain(
   // Tile size must be maintained through the life of the worker
   martini ??= new Martini(tileSize + 1);
 
-  const terrain = mapboxTerrainToGrid(pixels, interval, offset);
+  const terrain = mapboxTerrainToGrid(pixels, getDecodeRgbFunction(decodeRgb, functionCache));
 
   const tile = martini.createTile(terrain);
 

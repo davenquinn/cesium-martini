@@ -5,16 +5,12 @@ import {
   WebMercatorTilingScheme,
   Math as CMath,
   Event as CEvent,
-  Cartesian3,
   BoundingSphere,
   QuantizedMeshTerrainData,
   HeightmapTerrainData,
   OrientedBoundingBox,
   TerrainProvider,
   Credit,
-  Matrix3,
-  Resource,
-  defaultValue
 } from "cesium";
 const ndarray = require("ndarray");
 import Martini from "../martini/index.js";
@@ -22,7 +18,6 @@ import WorkerFarm from "./worker-farm";
 import { TerrainWorkerInput, decodeTerrain } from "./worker";
 import TilingScheme from "cesium/Source/Core/TilingScheme";
 import { HeightmapResource } from './heightmap-resource';
-import MapboxTerrainResource from "./mapbox-resource.js";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
@@ -39,8 +34,6 @@ interface MartiniTerrainOpts {
   detailScalar?: number;
   minimumErrorLevel?: number;
   maxWorkers?: number;
-  interval?: number;
-  offset?: number;
 }
 
 class MartiniTerrainProvider<TerrainProvider> {
@@ -60,8 +53,6 @@ class MartiniTerrainProvider<TerrainProvider> {
   minError: number = 0.1;
   
   resource: HeightmapResource = null;
-  interval: number;
-  offset: number;
 
   RADIUS_SCALAR = 1.0;
 
@@ -69,9 +60,6 @@ class MartiniTerrainProvider<TerrainProvider> {
   constructor(opts: MartiniTerrainOpts = {}) {
     //this.martini = new Martini(257);
     this.resource = opts.resource;
-
-    this.interval = opts.interval ?? 0.1;
-    this.offset = opts.offset ?? -10000;
     this.maxWorkers = opts.maxWorkers ?? 5;
 
     this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
@@ -107,7 +95,7 @@ class MartiniTerrainProvider<TerrainProvider> {
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
     const err = this.getErrorLevel(z);
     try {
-      const { tileSize, getTilePixels } = this.resource;
+      const { tileSize, getTilePixels, decodeRgb } = this.resource;
       let px = await getTilePixels({ x, y, z });
       let pixelData = px.data;
 
@@ -126,13 +114,12 @@ class MartiniTerrainProvider<TerrainProvider> {
         errorLevel: err,
         ellipsoidRadius: this.ellipsoid.maximumRadius,
         tileSize,
-        interval: this.interval,
-        offset: this.offset,
+        decodeRgb,
       };
 
       let res;
       if (this.workerFarm != null) {
-        res = await this.workerFarm.scheduleTask(params, [pixelData.buffer]);
+        res = await this.workerFarm.scheduleTask({ ...params, decodeRgb: params.decodeRgb?.toString() }, [pixelData.buffer]);
       } else {
         res = decodeTerrain(params, []);
       }
