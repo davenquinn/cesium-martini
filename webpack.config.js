@@ -35,7 +35,13 @@ module.exports = {
         enforce: "pre",
         test: /\.js$/,
         loader: "source-map-loader"
-      }
+      },
+      // https://github.com/CesiumGS/cesium/issues/9790#issuecomment-943773870
+      {
+        test: /.js$/,
+        include: path.resolve(__dirname, 'node_modules/cesium/Source'),
+        use: { loader: require.resolve('@open-wc/webpack-import-meta-loader') }
+      },
     ]
   },
   node: {
