@@ -1,7 +1,8 @@
-import { Resource } from "cesium";
-import { TileCoordinates } from "./terrain-provider";
+import { Resource, Credit } from "cesium";
+import { TileCoordinates } from "../terrain-provider";
 
 export interface HeightmapResource {
+  credit?: Credit;
   tileSize: number;
   getTilePixels: (coords: TileCoordinates) => Promise<ImageData>;
   getTileDataAvailable: (coords: TileCoordinates) => boolean;
@@ -12,7 +13,7 @@ interface CanvasRef {
   context: CanvasRenderingContext2D;
 }
 
-const loadImage: (url: string) => Promise<HTMLImageElement> = (url) =>
+export const loadImage: (url: string) => Promise<HTMLImageElement> = (url) =>
   new Promise((resolve, reject) => {
     const img = new Image();
     img.addEventListener("load", () => resolve(img));

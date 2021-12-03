@@ -8,13 +8,14 @@
     "watch": "rollup -c -w",
     "dev": "npm run watch & webpack-dev-server examples/simple/index.ts",
     "dev:react": "npm run watch & webpack-dev-server examples/react/index.ts",
+    "dev:worker": "npm run watch & webpack-dev-server examples/worker/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepublish": "npm run build"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@mapbox/martini": "^0.2.0",
+    "@mapbox/martini": "git://github.com/davenquinn/martini.git",
     "@types/ndarray": "^1.0.7",
     "axios": "^0.21.1",
     "cesium": "^1.81.0",
@@ -54,6 +55,7 @@
     "typescript": "^3.8.3",
     "webpack": "^4.42.1",
     "webpack-cli": "^3.3.11",
-    "webpack-dev-server": "^3.10.3"
+    "webpack-dev-server": "^3.10.3",
+    "worker-loader": "^3.0.8"
   }
 }
