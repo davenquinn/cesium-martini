@@ -110,8 +110,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
       let pixelData = px.data;
 
       const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
-      let maxLength = Math.round(10 / tileRect.height);
-      console.log(maxLength);
+      let maxLength = Math.round(5 / tileRect.height);
 
       const params: TerrainWorkerInput = {
         imageData: pixelData,
