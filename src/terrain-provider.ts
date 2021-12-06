@@ -42,6 +42,25 @@ interface MartiniTerrainOpts {
   minZoomLevel?: number;
 }
 
+class StretchedTilingScheme extends WebMercatorTilingScheme {
+  tileXYToRectangle(
+    x: number,
+    y: number,
+    level: number,
+    res: Rectangle
+  ): Rectangle {
+    let result = super.tileXYToRectangle(x, y, level);
+    if (y == 0) {
+      //console.log("Top row", res, y, level);
+      result.north = Math.PI / 2;
+    }
+    if (y + 1 == Math.pow(2, level)) {
+      result.south = -Math.PI / 2;
+    }
+    return result;
+  }
+}
+
 export class MartiniTerrainProvider<TerrainProvider> {
   hasWaterMask = false;
   hasVertexNormals = false;
@@ -57,7 +76,8 @@ export class MartiniTerrainProvider<TerrainProvider> {
   levelOfDetailScalar: number | null = null;
   maxWorkers: number = 5;
   minError: number = 0.1;
-  minZoomLevel: number = 3;
+  minZoomLevel: number;
+  fillPoles: boolean = false;
 
   resource: HeightmapResource = null;
   interval: number;
@@ -73,7 +93,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
     this.interval = opts.interval ?? 0.1;
     this.offset = opts.offset ?? -10000;
     this.maxWorkers = opts.maxWorkers ?? 5;
-    this.minZoomLevel = opts.minZoomLevel ?? 3;
+    this.minZoomLevel = opts.minZoomLevel ?? 0;
 
     this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
 
@@ -87,7 +107,11 @@ export class MartiniTerrainProvider<TerrainProvider> {
       this.workerFarm = new WorkerFarm();
     }
 
-    this.tilingScheme = new WebMercatorTilingScheme({
+    let scheme = WebMercatorTilingScheme;
+    if (this.fillPoles) {
+      scheme = StretchedTilingScheme;
+    }
+    this.tilingScheme = new scheme({
       numberOfLevelZeroTilesX: 1,
       numberOfLevelZeroTilesY: 1,
       ellipsoid: this.ellipsoid,
@@ -99,7 +123,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
   }
 
   requestTileGeometry(x, y, z, request) {
-    if (z <= this.minZoomLevel) {
+    if (z < this.minZoomLevel) {
       // If we are below the minimum zoom level, we return empty heightmaps
       // to avoid unnecessary requests for low-resolution data.
       const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
