@@ -39,6 +39,7 @@ interface MartiniTerrainOpts {
   maxWorkers?: number;
   interval?: number;
   offset?: number;
+  minZoomLevel?: number;
 }
 
 export class MartiniTerrainProvider<TerrainProvider> {
@@ -56,6 +57,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
   levelOfDetailScalar: number | null = null;
   maxWorkers: number = 5;
   minError: number = 0.1;
+  minZoomLevel: number = 3;
 
   resource: HeightmapResource = null;
   interval: number;
@@ -71,6 +73,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
     this.interval = opts.interval ?? 0.1;
     this.offset = opts.offset ?? -10000;
     this.maxWorkers = opts.maxWorkers ?? 5;
+    this.minZoomLevel = opts.minZoomLevel ?? 3;
 
     this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
 
@@ -91,7 +94,19 @@ export class MartiniTerrainProvider<TerrainProvider> {
     });
   }
 
+  maxVertexDistance(tileRect: Rectangle) {
+    return Math.round(5 / tileRect.height);
+  }
+
   requestTileGeometry(x, y, z, request) {
+    if (z <= this.minZoomLevel) {
+      // If we are below the minimum zoom level, we return empty heightmaps
+      // to avoid unnecessary requests for low-resolution data.
+      const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
+      let v = Math.max(Math.ceil(256 / this.maxVertexDistance(tileRect)), 4);
+      return Promise.resolve(this.emptyHeightmap(v));
+    }
+
     if (this.inProgressWorkers > this.maxWorkers) return undefined;
     this.inProgressWorkers += 1;
     return this.processTile(x, y, z).finally(() => {
@@ -110,7 +125,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
       let pixelData = px.data;
 
       const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
-      let maxLength = Math.round(5 / tileRect.height);
+      let maxLength = this.maxVertexDistance(tileRect);
 
       const params: TerrainWorkerInput = {
         imageData: pixelData,
