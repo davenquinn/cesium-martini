@@ -17,8 +17,10 @@ import Martini from "../martini/index.js";
 import WorkerFarm from "./worker-farm";
 import { TerrainWorkerInput, decodeTerrain } from "./worker";
 import TilingScheme from "cesium/Source/Core/TilingScheme";
-import { HeightmapResource } from './heightmap-resource';
-import MapboxTerrainResource, { MapboxTerrainResourceOpts } from "./mapbox-resource";
+import { HeightmapResource } from "./heightmap-resource";
+import MapboxTerrainResource, {
+  MapboxTerrainResourceOpts,
+} from "./mapbox-resource";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
@@ -54,7 +56,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
   levelOfDetailScalar: number | null = null;
   maxWorkers: number = 5;
   minError: number = 0.1;
-  
+
   resource: HeightmapResource = null;
   interval: number;
   offset: number;
@@ -108,10 +110,8 @@ export class MartiniTerrainProvider<TerrainProvider> {
       let pixelData = px.data;
 
       const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
-      let maxLength = Math.min(
-        Math.round(tileSize / 32) * (z + 1),
-        tileSize
-      );
+      let maxLength = Math.round(10 / tileRect.height);
+      console.log(maxLength);
 
       const params: TerrainWorkerInput = {
         imageData: pixelData,
@@ -137,7 +137,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
       return this.createQuantizedMeshData(tileRect, err, res);
     } catch (err) {
       console.log(err);
-      // return undefined
+      //return undefined;
       const v = Math.max(32 - 4 * z, 4);
       return this.emptyHeightmap(v);
     }
@@ -250,8 +250,8 @@ export class MartiniTerrainProvider<TerrainProvider> {
   }
 }
 
-
-type MapboxTerrainOpts = Omit<MartiniTerrainOpts, 'resource'> & MapboxTerrainResourceOpts;
+type MapboxTerrainOpts = Omit<MartiniTerrainOpts, "resource"> &
+  MapboxTerrainResourceOpts;
 
 export default class MapboxTerrainProvider extends MartiniTerrainProvider<TerrainProvider> {
   constructor(opts: MapboxTerrainOpts = {}) {
