@@ -2,7 +2,11 @@
 //const canvas = new OffscreenCanvas(256, 256);
 //const ctx = canvas.getContext("2d");
 
-function mapboxTerrainToGrid(png: ndarray<number>, interval?: number, offset?: number) {
+function mapboxTerrainToGrid(
+  png: ndarray<number>,
+  interval?: number,
+  offset?: number
+) {
   // maybe we should do this on the GPU using REGL?
   // but that would require GPU -> CPU -> GPU
   const gridSize = png.shape[0] + 1;
@@ -20,7 +24,7 @@ function mapboxTerrainToGrid(png: ndarray<number>, interval?: number, offset?: n
       const g = png.get(x, yc, 1);
       const b = png.get(x, yc, 2);
       terrain[y * gridSize + x] =
-        (r * 256 * 256) * interval + (g * 256.0) * interval + b * interval + offset;
+        r * 256 * 256 * interval + g * 256.0 * interval + b * interval + offset;
     }
   }
   // backfill right and bottom borders
@@ -34,7 +38,18 @@ function mapboxTerrainToGrid(png: ndarray<number>, interval?: number, offset?: n
   return terrain;
 }
 
-function testMeshData() {
+export interface TerrainWorkerOutput {
+  minimumHeight: number;
+  maximumHeight: number;
+  quantizedVertices: Uint16Array;
+  indices: Uint16Array;
+  westIndices: number[];
+  southIndices: number[];
+  eastIndices: number[];
+  northIndices: number[];
+}
+
+export function testMeshData(): TerrainWorkerOutput {
   return {
     minimumHeight: -100,
     maximumHeight: 2101,
@@ -55,13 +70,66 @@ function testMeshData() {
   };
 }
 
+export function emptyMesh(n: number): TerrainWorkerOutput {
+  n = Math.max(n, 2);
+  const nTriangles = Math.pow(n - 1, 2) * 2;
+  const nVertices = Math.pow(n, 2);
+  const quantizedVertices = new Uint16Array(nVertices * 3);
+  const indices = new Uint16Array(nTriangles * 3);
+  const westIndices = [];
+  const southIndices = [];
+  const eastIndices = [];
+  const northIndices = [];
+
+  let tix = 0;
+
+  for (let i = 0; i < nVertices; i++) {
+    let rx = i % n; //* 32767) / (n - 1);
+    let ry = Math.floor(i / n); //* 32767) / (n - 1);
+    const ix = n * rx + ry;
+    quantizedVertices[ix] = (rx * 32767) / (n - 1);
+    quantizedVertices[nVertices + ix] = (ry * 32767) / (n - 1);
+    quantizedVertices[2 * nVertices + ix] = 0;
+    if (ry == 0) westIndices.push(ix);
+    if (rx == 0) southIndices.push(ix);
+    if (rx == n - 1) eastIndices.push(ix);
+    if (ry == n - 1) northIndices.push(ix);
+
+    // Add triangles
+    const rix = i - ry * n;
+    if (rix != n - 1) {
+      indices[tix * 3] = i;
+      indices[tix * 3 + 1] = i + n + 1;
+      indices[tix * 3 + 2] = i + 1;
+      tix++;
+    }
+    if (rix != 0) {
+      indices[tix * 3] = i - 1;
+      indices[tix * 3 + 1] = i + n - 1;
+      indices[tix * 3 + 2] = i + n;
+      tix++;
+    }
+  }
+
+  return {
+    minimumHeight: 0,
+    maximumHeight: 0,
+    quantizedVertices,
+    indices,
+    westIndices,
+    southIndices,
+    eastIndices,
+    northIndices,
+  };
+}
+
 export interface QuantizedMeshOptions {
   errorLevel: number;
   tileSize: number;
   ellipsoidRadius: number;
 }
 
-function createQuantizedMeshData(tile, mesh, tileSize) {
+function createQuantizedMeshData(tile, mesh, tileSize): TerrainWorkerOutput {
   const xvals = [];
   const yvals = [];
   const heightMeters = [];
