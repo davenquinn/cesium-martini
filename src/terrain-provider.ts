@@ -198,12 +198,16 @@ export class MartiniTerrainProvider<TerrainProvider> {
   }
 
   maxVertexDistance(tileRect: Rectangle) {
-    return Math.round(5 / tileRect.height);
+    return Math.ceil(2 / tileRect.height);
   }
 
   emptyMesh(x: number, y: number, z: number) {
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
-    let v = Math.max(Math.ceil(256 / this.maxVertexDistance(tileRect)), 4);
+    const center = Rectangle.center(tileRect);
+    let v = Math.max(
+      Math.ceil(50 * Math.pow(1 - Math.sin(center.latitude), 0.5)),
+      8
+    );
     const output = emptyMesh(v);
     const err = this.errorAtZoom(z);
     return this.createQuantizedMeshData(tileRect, err, output);
