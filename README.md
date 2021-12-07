@@ -2,8 +2,6 @@
 
 **On-the-fly meshing of raster elevation tiles for the CesiumJS virtual globe**
 
-![Cesium-Martini](/img/cesium-martini.png)
-
 ![Himalayas](/img/himalayas.jpg)
 
 This package contains a Cesium
@@ -21,6 +19,7 @@ This module was created to support our geologic map visualization work
 at [Macrostrat](https://macrostrat.org) and as a building block
 for future rich geoscience visualizations.
 
+
 ## Installation
 
 This package is listed on NPM as `@macrostrat/cesium-martini`. It can be installed
@@ -29,6 +28,8 @@ using the command
 ```
 npm install --save @macrostrat/cesium-martini
 ```
+
+![Cesium-Martini](/img/cesium-martini.png)
 
 ## Development
 
