@@ -77,6 +77,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
   minError: number = 0.1;
   minZoomLevel: number;
   fillPoles: boolean = true;
+  _errorAtMinZoomLevel: number = 1000;
 
   resource: HeightmapResource = null;
   interval: number;
@@ -92,7 +93,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
     this.interval = opts.interval ?? 0.1;
     this.offset = opts.offset ?? -10000;
     this.maxWorkers = opts.maxWorkers ?? 5;
-    this.minZoomLevel = opts.minZoomLevel ?? 5;
+    this.minZoomLevel = opts.minZoomLevel ?? 3;
 
     this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
 
@@ -115,6 +116,8 @@ export class MartiniTerrainProvider<TerrainProvider> {
       numberOfLevelZeroTilesY: 1,
       ellipsoid: this.ellipsoid,
     });
+
+    this._errorAtMinZoomLevel = this.getErrorLevel(this.minZoomLevel);
   }
 
   maxVertexDistance(tileRect: Rectangle) {
@@ -122,7 +125,13 @@ export class MartiniTerrainProvider<TerrainProvider> {
   }
 
   requestTileGeometry(x, y, z, request) {
-    if (z < this.minZoomLevel) {
+    const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
+    const center = Rectangle.center(tileRect);
+    // Look for tiles both below the zoom level and below the error threshold for the zoom level at the equator...
+    const approxErrorAtLat =
+      this.getErrorLevel(z) / (1 - Math.sin(center.latitude));
+
+    if (z < this.minZoomLevel || approxErrorAtLat > this._errorAtMinZoomLevel) {
       // If we are below the minimum zoom level, we return empty heightmaps
       // to avoid unnecessary requests for low-resolution data.
       return Promise.resolve(this.emptyMesh(x, y, z));
@@ -139,13 +148,16 @@ export class MartiniTerrainProvider<TerrainProvider> {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
-    const err = this.getErrorLevel(z);
     try {
       const { tileSize, getTilePixels } = this.resource;
       let px = await getTilePixels({ x, y, z });
       let pixelData = px.data;
 
       const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
+      ///const center = Rectangle.center(tileRect);
+
+      const err = this.getErrorLevel(z);
+
       let maxLength = this.maxVertexDistance(tileRect);
 
       const params: TerrainWorkerInput = {

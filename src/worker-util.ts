@@ -70,7 +70,7 @@ export function testMeshData(): TerrainWorkerOutput {
   };
 }
 
-export function emptyMesh(n: number): TerrainWorkerOutput {
+function _emptyMesh(n: number): TerrainWorkerOutput {
   n = Math.max(n, 2);
   const nTriangles = Math.pow(n - 1, 2) * 2;
   const nVertices = Math.pow(n, 2);
@@ -121,6 +121,18 @@ export function emptyMesh(n: number): TerrainWorkerOutput {
     eastIndices,
     northIndices,
   };
+}
+
+let _meshCache = [];
+export function emptyMesh(n: number) {
+  // A memoized function to return empty meshes
+  if (n in _meshCache) {
+    return _meshCache[n];
+  } else {
+    const result = _emptyMesh(n);
+    _meshCache[n] = result;
+    return result;
+  }
 }
 
 export interface QuantizedMeshOptions {
