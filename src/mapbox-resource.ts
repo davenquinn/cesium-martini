@@ -1,6 +1,8 @@
 import { Resource } from "cesium";
-import { DefaultHeightmapResource, DefaultHeightmapResourceOpts } from "./heightmap-resource";
-import { TileCoordinates } from "./terrain-provider";
+import {
+  DefaultHeightmapResource,
+  DefaultHeightmapResourceOpts,
+} from "./heightmap-resource";
 
 export enum ImageFormat {
   WEBP = "webp",
@@ -31,11 +33,15 @@ export class MapboxTerrainResource extends DefaultHeightmapResource {
         this.tileSize = 512;
       }
     }
-    
-    this.resource = Resource.createIfNeeded(`https://api.mapbox.com/v4/mapbox.terrain-rgb/{z}/{x}/{y}${highResolution ? "@2x" : ""}.${format}`);
+
+    this.resource = Resource.createIfNeeded(
+      `https://api.mapbox.com/v4/mapbox.terrain-rgb/{z}/{x}/{y}${
+        highResolution ? "@2x" : ""
+      }.${format}`
+    );
     if (opts.accessToken) {
       this.resource.setQueryParameters({
-        access_token: opts.accessToken
+        access_token: opts.accessToken,
       });
     }
   }

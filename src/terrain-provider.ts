@@ -7,18 +7,18 @@ import {
   Event as CEvent,
   BoundingSphere,
   QuantizedMeshTerrainData,
-  HeightmapTerrainData,
   OrientedBoundingBox,
   TerrainProvider,
   Credit,
 } from "cesium";
-const ndarray = require("ndarray");
-import Martini from "../martini/index.js";
 import WorkerFarm from "./worker-farm";
 import { TerrainWorkerInput, decodeTerrain } from "./worker";
 import TilingScheme from "cesium/Source/Core/TilingScheme";
-import { HeightmapResource } from './heightmap-resource';
-import MapboxTerrainResource, { MapboxTerrainResourceOpts } from "./mapbox-resource";
+import { HeightmapResource } from "./heightmap-resource";
+import MapboxTerrainResource, {
+  MapboxTerrainResourceOpts,
+} from "./mapbox-resource";
+import { emptyMesh } from "./worker-util";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
@@ -37,6 +37,27 @@ interface MartiniTerrainOpts {
   maxWorkers?: number;
   interval?: number;
   offset?: number;
+  minZoomLevel?: number;
+  fillPoles?: boolean;
+}
+
+class StretchedTilingScheme extends WebMercatorTilingScheme {
+  tileXYToRectangle(
+    x: number,
+    y: number,
+    level: number,
+    res: Rectangle
+  ): Rectangle {
+    let result = super.tileXYToRectangle(x, y, level);
+    if (y == 0) {
+      //console.log("Top row", res, y, level);
+      result.north = Math.PI / 2;
+    }
+    if (y + 1 == Math.pow(2, level)) {
+      result.south = -Math.PI / 2;
+    }
+    return result;
+  }
 }
 
 export class MartiniTerrainProvider<TerrainProvider> {
@@ -54,7 +75,10 @@ export class MartiniTerrainProvider<TerrainProvider> {
   levelOfDetailScalar: number | null = null;
   maxWorkers: number = 5;
   minError: number = 0.1;
-  
+  minZoomLevel: number;
+  fillPoles: boolean = true;
+  _errorAtMinZoom: number = 1000;
+
   resource: HeightmapResource = null;
   interval: number;
   offset: number;
@@ -69,6 +93,8 @@ export class MartiniTerrainProvider<TerrainProvider> {
     this.interval = opts.interval ?? 0.1;
     this.offset = opts.offset ?? -10000;
     this.maxWorkers = opts.maxWorkers ?? 5;
+    this.minZoomLevel = opts.minZoomLevel ?? 3;
+    this.fillPoles = opts.fillPoles ?? true;
 
     this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
 
@@ -82,14 +108,31 @@ export class MartiniTerrainProvider<TerrainProvider> {
       this.workerFarm = new WorkerFarm();
     }
 
-    this.tilingScheme = new WebMercatorTilingScheme({
+    let scheme = WebMercatorTilingScheme;
+    if (this.fillPoles) {
+      scheme = StretchedTilingScheme;
+    }
+    this.tilingScheme = new scheme({
       numberOfLevelZeroTilesX: 1,
       numberOfLevelZeroTilesY: 1,
       ellipsoid: this.ellipsoid,
     });
+
+    this._errorAtMinZoom = this.errorAtZoom(this.minZoomLevel);
   }
 
   requestTileGeometry(x, y, z, request) {
+    // Look for tiles both below the zoom level and below the error threshold for the zoom level at the equator...
+
+    if (
+      z < this.minZoomLevel ||
+      this.scaledErrorForTile(x, y, z) > this._errorAtMinZoom
+    ) {
+      // If we are below the minimum zoom level, we return empty heightmaps
+      // to avoid unnecessary requests for low-resolution data.
+      return Promise.resolve(this.emptyMesh(x, y, z));
+    }
+
     if (this.inProgressWorkers > this.maxWorkers) return undefined;
     this.inProgressWorkers += 1;
     return this.processTile(x, y, z).finally(() => {
@@ -101,17 +144,17 @@ export class MartiniTerrainProvider<TerrainProvider> {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
-    const err = this.getErrorLevel(z);
     try {
       const { tileSize, getTilePixels } = this.resource;
       let px = await getTilePixels({ x, y, z });
       let pixelData = px.data;
 
       const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
-      let maxLength = Math.min(
-        Math.round(tileSize / 32) * (z + 1),
-        tileSize
-      );
+      ///const center = Rectangle.center(tileRect);
+
+      const err = this.errorAtZoom(z);
+
+      let maxLength = this.maxVertexDistance(tileRect);
 
       const params: TerrainWorkerInput = {
         imageData: pixelData,
@@ -137,17 +180,33 @@ export class MartiniTerrainProvider<TerrainProvider> {
       return this.createQuantizedMeshData(tileRect, err, res);
     } catch (err) {
       console.log(err);
-      // return undefined
-      const v = Math.max(32 - 4 * z, 4);
-      return this.emptyHeightmap(v);
+      return this.emptyMesh(x, y, z);
     }
   }
 
-  getErrorLevel(zoom: number) {
+  errorAtZoom(zoom: number) {
     return Math.max(
       this.getLevelMaximumGeometricError(zoom) / this.levelOfDetailScalar,
       this.minError
     );
+  }
+
+  scaledErrorForTile(x: number, y: number, z: number) {
+    const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
+    const center = Rectangle.center(tileRect);
+    return this.errorAtZoom(z) / (1 - Math.sin(center.latitude));
+  }
+
+  maxVertexDistance(tileRect: Rectangle) {
+    return Math.round(5 / tileRect.height);
+  }
+
+  emptyMesh(x: number, y: number, z: number) {
+    const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
+    let v = Math.max(Math.ceil(256 / this.maxVertexDistance(tileRect)), 4);
+    const output = emptyMesh(v);
+    const err = this.errorAtZoom(z);
+    return this.createQuantizedMeshData(tileRect, err, output);
   }
 
   createQuantizedMeshData(tileRect, errorLevel, workerOutput) {
@@ -166,17 +225,20 @@ export class MartiniTerrainProvider<TerrainProvider> {
     const skirtHeight = err * 20;
 
     const center = Rectangle.center(tileRect);
-    // Need to get maximum distance at zoom level
-    // tileRect.width is given in radians
-    // cos of half-tile-width allows us to use right-triangle relationship
-    const cosWidth = Math.cos(tileRect.width / 2); // half tile width since our ref point is at the center
-    // scale max height to max ellipsoid radius
-    // ... it might be better to use the radius of the entire
-    // cosine relationship to scale height in ellipsoid-relative coordinates
+
+    // Calculating occlusion height is kind of messy currently, but it definitely works
+    const halfAngle = tileRect.width / 2;
+    const dr = Math.cos(halfAngle); // half tile width since our ref point is at the center
+
+    let occlusionHeight = dr * this.ellipsoid.maximumRadius + maximumHeight;
+    if (halfAngle > Math.PI / 4) {
+      occlusionHeight = (1 + halfAngle) * this.ellipsoid.maximumRadius;
+    }
+
     const occlusionPoint = new Cartographic(
       center.longitude,
       center.latitude,
-      (maximumHeight * 2) / cosWidth
+      occlusionHeight
       // Scaling factor of two just to be sure.
     );
 
@@ -215,19 +277,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
       childTileMask: 15,
     });
 
-    //debugger;
-
-    //if (tileRect.width < 0.01) debugger;
-    //return this.emptyHeightmap(2);
     return result;
-  }
-
-  emptyHeightmap(samples) {
-    return new HeightmapTerrainData({
-      buffer: new Uint8Array(Array(samples * samples).fill(0)),
-      width: samples,
-      height: samples,
-    });
   }
 
   getLevelMaximumGeometricError(level) {
@@ -250,8 +300,8 @@ export class MartiniTerrainProvider<TerrainProvider> {
   }
 }
 
-
-type MapboxTerrainOpts = Omit<MartiniTerrainOpts, 'resource'> & MapboxTerrainResourceOpts;
+type MapboxTerrainOpts = Omit<MartiniTerrainOpts, "resource"> &
+  MapboxTerrainResourceOpts;
 
 export default class MapboxTerrainProvider extends MartiniTerrainProvider<TerrainProvider> {
   constructor(opts: MapboxTerrainOpts = {}) {

@@ -2,9 +2,9 @@
 
 **On-the-fly meshing of raster elevation tiles for the CesiumJS virtual globe**
 
-![Cesium-Martini](/img/cesium-martini.png)
+![Himalayas](/img/himalayas.jpg)
 
-This package contains a preliminary but functional implementation of a Cesium
+This package contains a Cesium
 [TerrainProvider](https://cesium.com/docs/cesiumjs-ref-doc/TerrainProvider.html)
 that uses right-triangular irregular networks (RTIN) pioneered by
 [Mapbox's Martini](https://observablehq.com/@mourner/martin-real-time-rtin-terrain-mesh) to
@@ -19,6 +19,7 @@ This module was created to support our geologic map visualization work
 at [Macrostrat](https://macrostrat.org) and as a building block
 for future rich geoscience visualizations.
 
+
 ## Installation
 
 This package is listed on NPM as `@macrostrat/cesium-martini`. It can be installed
@@ -27,6 +28,8 @@ using the command
 ```
 npm install --save @macrostrat/cesium-martini
 ```
+
+![Cesium-Martini](/img/cesium-martini.png)
 
 ## Development
 
@@ -75,12 +78,12 @@ without adding overhead of TIN processing and storage.
 
 ## Current limitations
 
-### Data transport inefficiency
+### Lack of support for overzooming
 
 Cesium's implementations of the `TerrainProvider` interface are generally geared
 towards representing static terrain meshes. The RTIN algorithm used here can
 dynamically build meshes at a variety of error levels, and the input height
-field are data-dense and can represent extremely detailed meshes. Right now,
+field are data-dense and can represent extremely detailed meshes at a given zoom level. Currently,
 meshes are generated at levels of detail that undersample the available structure
 in a terrain tile — levels of detail are calibrated to what Cesium needs to
 render visually pleasing output at a given zoom level.
@@ -89,26 +92,12 @@ A smarter and more parsimonious solution would use much lower zoom levels
 for terrain than imagery, using the full resolution of the dataset in
 mesh construction. Done correctly, this could lead to an extremely
 data-efficient and adaptive terrain render, but this seems to run somewhat
-counter to how Cesium internally manages levels of detail, and some thought will have to
-go into how to organize this. Ideally, someone familiar with the inner workings
+counter to how Cesium internally manages levels of detail. Ideally, someone familiar with the inner workings
 of Cesium would provide some guidance here.
 
-### Basic bugs and issues
+### Outstanding bugs and issues
 
-- [x] Right now, there is a bug with rendering tile bounding boxes when
-      `terrainExaggeration: 1` in the Cesium viewer
-      (setting `terrainExaggeration: 1.00001` works just fine). I'm uncertain why
-      this is occurring, but it is likely easily fixable.
-- [x] High-resolution `@2x` tiles can be requested, but an indexing error
-      prevents them from rendering properly.
-- [x] The increased resolution of `@2x` tiles can be used, but doing so forces
-      the loading of high resolution overlay imagery across a wide area, so using them is not
-      advisable until broader changes are made to the renderer.
-- [x] Tiles at low zoom levels must to respond to the curvature of the Earth,
-      while their topographic range often yields only two triangles covering the entire
-      tile. For zoom levels less than 5, we currently fall back to a basic height field,
-      but we should ideally have a method that subdivides triangles to densify
-      the mesh.
+- [ ] High-resolution `@2x` tiles are notionally supported but not well-tested.
 - [ ] There is no formal testing framework to catch regressions.
 - [ ] TypeScript types are discarded on compilation rather than checked properly.
 
@@ -129,7 +118,6 @@ of Cesium would provide some guidance here.
 - Better masking of unavailable tiles
 - Bathymetry option
 - Tie to hillshade generator so the same tiles are loaded
-- Caps for poles
 
 Pull requests for any and all of these priorities are appreciated!
 
@@ -153,3 +141,11 @@ Pull requests for any and all of these priorities are appreciated!
 - More configurability with options like `detailScalar` and `minimumErrorLevel`.
 - Updated README and examples
 - Uses web workers for rapid tile generation off the main thread
+
+### `[1.2.0]`: November 2020
+
+- Globe caps! (disable using the `fillPoles` option).
+- Some fixes for efficiency
+- Fixed small errors in tile occlusion code
+- Added a `minZoom` configuration option to prevent excessive loading of low-resolution tiles
+- Four (!) pull requests from [@stuarta0](https://github.com/stuarta0) to improve loading of non-Mapbox tilesets
