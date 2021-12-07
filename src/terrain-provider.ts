@@ -205,7 +205,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
     const center = Rectangle.center(tileRect);
     let v = Math.max(
-      Math.ceil(50 * Math.pow(1 - Math.sin(center.latitude), 0.5)),
+      Math.ceil(50 * Math.pow(1 - Math.abs(Math.sin(center.latitude)), 0.5)),
       8
     );
     const output = emptyMesh(v);
