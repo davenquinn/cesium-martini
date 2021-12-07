@@ -143,7 +143,8 @@ Pull requests for any and all of these priorities are appreciated!
 
 ### `[1.2.0]`: November 2020
 
+- Globe caps! (disable using the `fillPoles` option).
 - Some fixes for efficiency
 - Fixed small errors in tile occlusion code
-- Added globe caps (disable using the `fillPoles` option).
 - Added a `minZoom` configuration option to prevent excessive loading of low-resolution tiles
+- Four (!) pull requests from [@stuarta0](https://github.com/stuarta0) to improve loading of non-Mapbox tilesets
