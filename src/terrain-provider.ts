@@ -38,6 +38,7 @@ interface MartiniTerrainOpts {
   interval?: number;
   offset?: number;
   minZoomLevel?: number;
+  fillPoles?: boolean;
 }
 
 class StretchedTilingScheme extends WebMercatorTilingScheme {
@@ -76,7 +77,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
   minError: number = 0.1;
   minZoomLevel: number;
   fillPoles: boolean = true;
-  _errorAtMinZoomLevel: number = 1000;
+  _errorAtMinZoom: number = 1000;
 
   resource: HeightmapResource = null;
   interval: number;
@@ -93,6 +94,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
     this.offset = opts.offset ?? -10000;
     this.maxWorkers = opts.maxWorkers ?? 5;
     this.minZoomLevel = opts.minZoomLevel ?? 3;
+    this.fillPoles = opts.fillPoles ?? true;
 
     this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
 
@@ -116,21 +118,16 @@ export class MartiniTerrainProvider<TerrainProvider> {
       ellipsoid: this.ellipsoid,
     });
 
-    this._errorAtMinZoomLevel = this.getErrorLevel(this.minZoomLevel);
-  }
-
-  maxVertexDistance(tileRect: Rectangle) {
-    return Math.round(5 / tileRect.height);
+    this._errorAtMinZoom = this.errorAtZoom(this.minZoomLevel);
   }
 
   requestTileGeometry(x, y, z, request) {
-    const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
-    const center = Rectangle.center(tileRect);
     // Look for tiles both below the zoom level and below the error threshold for the zoom level at the equator...
-    const approxErrorAtLat =
-      this.getErrorLevel(z) / (1 - Math.sin(center.latitude));
 
-    if (z < this.minZoomLevel || approxErrorAtLat > this._errorAtMinZoomLevel) {
+    if (
+      z < this.minZoomLevel ||
+      this.scaledErrorForTile(x, y, z) > this._errorAtMinZoom
+    ) {
       // If we are below the minimum zoom level, we return empty heightmaps
       // to avoid unnecessary requests for low-resolution data.
       return Promise.resolve(this.emptyMesh(x, y, z));
@@ -155,7 +152,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
       const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
       ///const center = Rectangle.center(tileRect);
 
-      const err = this.getErrorLevel(z);
+      const err = this.errorAtZoom(z);
 
       let maxLength = this.maxVertexDistance(tileRect);
 
@@ -187,22 +184,29 @@ export class MartiniTerrainProvider<TerrainProvider> {
     }
   }
 
-  getErrorLevel(zoom: number) {
+  errorAtZoom(zoom: number) {
     return Math.max(
       this.getLevelMaximumGeometricError(zoom) / this.levelOfDetailScalar,
       this.minError
     );
   }
 
+  scaledErrorForTile(x: number, y: number, z: number) {
+    const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
+    const center = Rectangle.center(tileRect);
+    return this.errorAtZoom(z) / (1 - Math.sin(center.latitude));
+  }
+
+  maxVertexDistance(tileRect: Rectangle) {
+    return Math.round(5 / tileRect.height);
+  }
+
   emptyMesh(x: number, y: number, z: number) {
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
     let v = Math.max(Math.ceil(256 / this.maxVertexDistance(tileRect)), 4);
     const output = emptyMesh(v);
-    return this.createQuantizedMeshData(
-      tileRect,
-      this.getErrorLevel(z),
-      output
-    );
+    const err = this.errorAtZoom(z);
+    return this.createQuantizedMeshData(tileRect, err, output);
   }
 
   createQuantizedMeshData(tileRect, errorLevel, workerOutput) {

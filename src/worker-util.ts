@@ -87,8 +87,8 @@ function _emptyMesh(n: number): TerrainWorkerOutput {
     let rx = i % n; //* 32767) / (n - 1);
     let ry = Math.floor(i / n); //* 32767) / (n - 1);
     const ix = n * rx + ry;
-    quantizedVertices[ix] = (rx * 32767) / (n - 1);
-    quantizedVertices[nVertices + ix] = (ry * 32767) / (n - 1);
+    quantizedVertices[ix] = (rx * 32768) / (n - 1);
+    quantizedVertices[nVertices + ix] = (ry * 32768) / (n - 1);
     quantizedVertices[2 * nVertices + ix] = 0;
     if (ry == 0) westIndices.push(ix);
     if (rx == 0) southIndices.push(ix);
