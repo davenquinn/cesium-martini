@@ -77,20 +77,22 @@ export class DefaultHeightmapResource implements HeightmapResource {
     // reverseY for TMS tiling (https://gist.github.com/tmcw/4954720)
     // See tiling schemes here: https://www.maptiler.com/google-maps-coordinates-tile-bounds-projection/
     const { z, y } = tileCoords;
-    return this.resource?.getDerivedResource({
-      templateValues: {
-        ...tileCoords,
-        reverseY: Math.pow(2, z) - y - 1,
-      },
-      preserveQueryParameters: true,
-    }).getUrlComponent(true);
+    return this.resource
+      ?.getDerivedResource({
+        templateValues: {
+          ...tileCoords,
+          reverseY: Math.pow(2, z) - y - 1,
+        },
+        preserveQueryParameters: true,
+      })
+      .getUrlComponent(true);
   }
 
   getTilePixels = async (coords: TileCoordinates) => {
     const url = this.buildTileURL(coords);
     let img = await loadImage(url);
     return this.getPixels(img);
-  }
+  };
 
   getTileDataAvailable({ z }) {
     if (z == this.maxZoom) return true;

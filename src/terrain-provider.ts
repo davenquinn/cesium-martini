@@ -7,7 +7,6 @@ import {
   Event as CEvent,
   BoundingSphere,
   QuantizedMeshTerrainData,
-  HeightmapTerrainData,
   OrientedBoundingBox,
   TerrainProvider,
   Credit,
@@ -274,19 +273,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
       childTileMask: 15,
     });
 
-    //debugger;
-
-    //if (tileRect.width < 0.01) debugger;
-    //return this.emptyHeightmap(2);
     return result;
-  }
-
-  emptyHeightmap(samples) {
-    return new HeightmapTerrainData({
-      buffer: new Uint8Array(Array(samples * samples).fill(0)),
-      width: samples,
-      height: samples,
-    });
   }
 
   getLevelMaximumGeometricError(level) {
