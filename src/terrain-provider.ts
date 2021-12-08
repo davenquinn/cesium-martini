@@ -134,6 +134,8 @@ export class MartiniTerrainProvider<TerrainProvider> {
       return Promise.resolve(this.emptyMesh(x, y, z));
     }
 
+    // Note: we still load a TON of tiles near the poles. We might need to do some overzooming here...
+
     if (this.inProgressWorkers > this.maxWorkers) return undefined;
     this.inProgressWorkers += 1;
     return this.processTile(x, y, z).finally(() => {
