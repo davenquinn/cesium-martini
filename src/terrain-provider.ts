@@ -95,6 +95,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
     this.maxWorkers = opts.maxWorkers ?? 5;
     this.minZoomLevel = opts.minZoomLevel ?? 3;
     this.fillPoles = opts.fillPoles ?? true;
+    console.log("fillPoles", this.fillPoles);
 
     this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
 
@@ -204,9 +205,11 @@ export class MartiniTerrainProvider<TerrainProvider> {
   emptyMesh(x: number, y: number, z: number) {
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
     const center = Rectangle.center(tileRect);
+
+    const latScalar = Math.min(Math.abs(Math.sin(center.latitude)), 0.995);
     let v = Math.max(
-      Math.ceil(50 * Math.pow(1 - Math.abs(Math.sin(center.latitude)), 0.5)),
-      8
+      Math.ceil((200 / (z + 1)) * Math.pow(1 - latScalar, 0.25)),
+      4
     );
     const output = emptyMesh(v);
     const err = this.errorAtZoom(z);

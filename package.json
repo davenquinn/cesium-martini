@@ -9,7 +9,7 @@
     "dev": "npm run watch & webpack-dev-server examples/simple/index.ts",
     "dev:react": "npm run watch & webpack-dev-server examples/react/index.ts",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prepublish": "npm run build"
+    "prepublishOnly": "npm run build"
   },
   "author": "",
   "license": "ISC",
