@@ -82,6 +82,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
   resource: HeightmapResource = null;
   interval: number;
   offset: number;
+  processingQueue: Function[];
 
   RADIUS_SCALAR = 1.0;
 
@@ -105,6 +106,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
 
     this.errorEvent.addEventListener(console.log, this);
     this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84;
+    this.processingQueue = [];
     if (this.maxWorkers > 0) {
       this.workerFarm = new WorkerFarm();
     }
@@ -126,8 +128,9 @@ export class MartiniTerrainProvider<TerrainProvider> {
     // Look for tiles both below the zoom level and below the error threshold for the zoom level at the equator...
 
     if (
-      z < this.minZoomLevel ||
-      this.scaledErrorForTile(x, y, z) > this._errorAtMinZoom
+      this.minZoomLevel != 0 &&
+      (z < this.minZoomLevel ||
+        this.scaledErrorForTile(x, y, z) > this._errorAtMinZoom)
     ) {
       // If we are below the minimum zoom level, we return empty heightmaps
       // to avoid unnecessary requests for low-resolution data.
@@ -136,21 +139,44 @@ export class MartiniTerrainProvider<TerrainProvider> {
 
     // Note: we still load a TON of tiles near the poles. We might need to do some overzooming here...
 
-    if (this.inProgressWorkers > this.maxWorkers) return undefined;
-    this.inProgressWorkers += 1;
-    return this.processTile(x, y, z).finally(() => {
-      this.inProgressWorkers -= 1;
+    request = this.resource.getTilePixels({ x, y, z });
+    if (request == null) return undefined;
+    return request.then((imageData: ImageData) => {
+      return this.processTile(imageData, x, y, z).finally(() => {
+        this.releaseWorker();
+      });
     });
   }
 
-  async processTile(x: number, y: number, z: number) {
+  releaseWorker() {
+    this.inProgressWorkers -= 1;
+    if (this.processingQueue.length > 0) {
+      this.processingQueue.shift()();
+    }
+  }
+
+  async queueForAvailableWorker(): Promise<void> {
+    let resultPromise: Promise<void>;
+    if (this.inProgressWorkers > this.maxWorkers) {
+      resultPromise = new Promise((resolve, reject) => {
+        this.processingQueue.push(resolve);
+      });
+    } else {
+      resultPromise = Promise.resolve(null);
+    }
+    await resultPromise;
+    this.inProgressWorkers += 1;
+  }
+
+  async processTile(imageData: ImageData, x: number, y: number, z: number) {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
+    await this.queueForAvailableWorker();
+
     try {
-      const { tileSize, getTilePixels } = this.resource;
-      let px = await getTilePixels({ x, y, z });
-      let pixelData = px.data;
+      const { tileSize } = this.resource;
+      let pixelData = imageData.data;
 
       const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
       ///const center = Rectangle.center(tileRect);
@@ -179,7 +205,6 @@ export class MartiniTerrainProvider<TerrainProvider> {
         res = decodeTerrain(params, []);
       }
       pixelData = undefined;
-      px = undefined;
       return this.createQuantizedMeshData(tileRect, err, res);
     } catch (err) {
       console.log(err);

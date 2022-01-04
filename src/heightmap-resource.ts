@@ -1,9 +1,11 @@
 import { Resource } from "cesium";
 import { TileCoordinates } from "./terrain-provider";
-
+import offscreenCanvasSupported from "maplibre-gl/src/util/offscreen_canvas_supported";
+import { isImageBitmap } from "maplibre-gl/src/util/util";
+import browser from "maplibre-gl/src/util/browser";
 export interface HeightmapResource {
   tileSize: number;
-  getTilePixels: (coords: TileCoordinates) => Promise<ImageData>;
+  getTilePixels: (coords: TileCoordinates) => Promise<ImageData> | undefined;
   getTileDataAvailable: (coords: TileCoordinates) => boolean;
 }
 
@@ -11,16 +13,6 @@ interface CanvasRef {
   canvas: HTMLCanvasElement;
   context: CanvasRenderingContext2D;
 }
-
-const loadImage: (url: string) => Promise<HTMLImageElement> = (url) =>
-  new Promise((resolve, reject) => {
-    const img = new Image();
-    img.addEventListener("load", () => resolve(img));
-    img.addEventListener("error", (err) => reject(err));
-    img.crossOrigin = "anonymous";
-    img.src = url;
-  });
-
 export interface DefaultHeightmapResourceOpts {
   url?: string;
   skipOddLevels?: boolean;
@@ -73,26 +65,30 @@ export class DefaultHeightmapResource implements HeightmapResource {
     return pixels;
   }
 
-  buildTileURL(tileCoords: TileCoordinates) {
+  getTileResource(tileCoords: TileCoordinates) {
     // reverseY for TMS tiling (https://gist.github.com/tmcw/4954720)
     // See tiling schemes here: https://www.maptiler.com/google-maps-coordinates-tile-bounds-projection/
     const { z, y } = tileCoords;
-    return this.resource
-      ?.getDerivedResource({
-        templateValues: {
-          ...tileCoords,
-          reverseY: Math.pow(2, z) - y - 1,
-        },
-        preserveQueryParameters: true,
-      })
-      .getUrlComponent(true);
+    return this.resource.getDerivedResource({
+      templateValues: {
+        ...tileCoords,
+        reverseY: Math.pow(2, z) - y - 1,
+      },
+      preserveQueryParameters: true,
+    });
   }
 
-  getTilePixels = async (coords: TileCoordinates) => {
-    const url = this.buildTileURL(coords);
-    let img = await loadImage(url);
-    return this.getPixels(img);
-  };
+  getTilePixels(coords: TileCoordinates): Promise<ImageData> | undefined {
+    const resource = this.getTileResource(coords);
+    const request = resource.fetchImage({
+      preferImageBitmap: false,
+      retryAttempts: 3,
+    });
+    if (request == null) return undefined;
+    return request.then((img: HTMLImageElement | ImageBitmap) =>
+      this.getPixels(img)
+    );
+  }
 
   getTileDataAvailable({ z }) {
     if (z == this.maxZoom) return true;

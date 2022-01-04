@@ -10,6 +10,9 @@ import commonjs from "@rollup/plugin-commonjs";
 
 const extensions = [".js", ".ts"];
 
+let external = Object.keys(deps);
+delete external["maplibre-gl"];
+
 export default {
   input: "src/index.ts", // our source file
   output: {
@@ -18,13 +21,13 @@ export default {
     sourcemap: true,
     exports: "auto",
   },
-  external: Object.keys(deps),
+  external,
   plugins: [
     resolve({ extensions, module: true }),
     commonjs(),
     babel({
       extensions,
-      exclude: "node_modules/**",
+      include: ["src/**/*.ts", "node_modules/maplibre-gl/**/*.ts"],
     }),
     webWorkerLoader({
       inline: true,
