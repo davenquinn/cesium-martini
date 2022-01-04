@@ -1,41 +1,30 @@
 import {
   mapboxTerrainToGrid,
   createQuantizedMeshData,
-  QuantizedMeshOptions,
+  TerrainWorkerInput,
 } from "./worker-util";
 import ndarray from "ndarray";
 import Martini from "../martini/index.js";
 import "regenerator-runtime";
 // https://github.com/CesiumGS/cesium/blob/1.76/Source/WorkersES6/createVerticesFromQuantizedTerrainMesh.js
 
-export interface TerrainWorkerInput extends QuantizedMeshOptions {
-  imageData: Uint8ClampedArray;
-  maxLength: number | null;
-  x: number;
-  y: number;
-  z: number;
-
-  /**
-   * Terrain-RGB interval (default 0.1)
-   */
-  interval?: number;
-
-  /**
-   * Terrain-RGB offset (default -10000)
-   */
-  offset?: number;
-}
-
 let martini = null;
 
 function decodeTerrain(
   parameters: TerrainWorkerInput,
-  transferableObjects: any[]
+  transferableObjects?: any[]
 ) {
-  const { imageData, tileSize = 256, errorLevel, interval, offset } = parameters;
+  const {
+    pixelData,
+    tileSize = 256,
+    errorLevel,
+    interval,
+    offset,
+    maxVertexDistance,
+  } = parameters;
 
   const pixels = ndarray(
-    new Uint8Array(imageData),
+    new Uint8Array(pixelData),
     [tileSize, tileSize, 4],
     [4, 4 * tileSize, 1],
     0
@@ -49,7 +38,7 @@ function decodeTerrain(
   const tile = martini.createTile(terrain);
 
   // get a mesh (vertices and triangles indices) for a 10m error
-  const mesh = tile.getMesh(errorLevel, parameters.maxLength);
+  const mesh = tile.getMesh(errorLevel, maxVertexDistance);
   return createQuantizedMeshData(tile, mesh, tileSize);
 }
 

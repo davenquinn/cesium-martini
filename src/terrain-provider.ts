@@ -1,32 +1,21 @@
 import {
-  Cartographic,
   Rectangle,
   Ellipsoid,
   WebMercatorTilingScheme,
   Math as CMath,
   Event as CEvent,
-  BoundingSphere,
-  QuantizedMeshTerrainData,
-  OrientedBoundingBox,
   TerrainProvider,
   Credit,
+  TilingScheme,
 } from "cesium";
 import WorkerFarm from "./worker-farm";
-import { TerrainWorkerInput, decodeTerrain } from "./worker";
-import TilingScheme from "cesium/Source/Core/TilingScheme";
 import { HeightmapResource } from "./heightmap-resource";
 import MapboxTerrainResource, {
   MapboxTerrainResourceOpts,
 } from "./mapbox-resource";
-import { emptyMesh } from "./worker-util";
+import { createEmptyMesh, buildTerrainTile } from "./terrain-data";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
-
-export interface TileCoordinates {
-  x: number;
-  y: number;
-  z: number;
-}
 
 interface MartiniTerrainOpts {
   resource: HeightmapResource;
@@ -82,7 +71,6 @@ export class MartiniTerrainProvider<TerrainProvider> {
   resource: HeightmapResource = null;
   interval: number;
   offset: number;
-  processingQueue: Function[];
 
   RADIUS_SCALAR = 1.0;
 
@@ -106,7 +94,6 @@ export class MartiniTerrainProvider<TerrainProvider> {
 
     this.errorEvent.addEventListener(console.log, this);
     this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84;
-    this.processingQueue = [];
     if (this.maxWorkers > 0) {
       this.workerFarm = new WorkerFarm();
     }
@@ -142,74 +129,36 @@ export class MartiniTerrainProvider<TerrainProvider> {
     request = this.resource.getTilePixels({ x, y, z });
     if (request == null) return undefined;
     return request.then((imageData: ImageData) => {
-      return this.processTile(imageData, x, y, z).finally(() => {
-        this.releaseWorker();
-      });
+      return this.processTile(imageData, x, y, z);
     });
-  }
-
-  releaseWorker() {
-    this.inProgressWorkers -= 1;
-    if (this.processingQueue.length > 0) {
-      this.processingQueue.shift()();
-    }
-  }
-
-  async queueForAvailableWorker(): Promise<void> {
-    let resultPromise: Promise<void>;
-    if (this.inProgressWorkers > this.maxWorkers) {
-      resultPromise = new Promise((resolve, reject) => {
-        this.processingQueue.push(resolve);
-      });
-    } else {
-      resultPromise = Promise.resolve(null);
-    }
-    await resultPromise;
-    this.inProgressWorkers += 1;
   }
 
   async processTile(imageData: ImageData, x: number, y: number, z: number) {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
-    await this.queueForAvailableWorker();
+    const { tileSize } = this.resource;
+    let pixelData = imageData.data;
 
-    try {
-      const { tileSize } = this.resource;
-      let pixelData = imageData.data;
+    const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
+    ///const center = Rectangle.center(tileRect);
 
-      const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
-      ///const center = Rectangle.center(tileRect);
+    const err = this.errorAtZoom(z);
 
-      const err = this.errorAtZoom(z);
+    let maxVertexDistance = this.maxVertexDistance(tileRect);
 
-      let maxLength = this.maxVertexDistance(tileRect);
-
-      const params: TerrainWorkerInput = {
-        imageData: pixelData,
-        maxLength,
-        x,
-        y,
-        z,
-        errorLevel: err,
-        ellipsoidRadius: this.ellipsoid.maximumRadius,
-        tileSize,
-        interval: this.interval,
-        offset: this.offset,
-      };
-
-      let res;
-      if (this.workerFarm != null) {
-        res = await this.workerFarm.scheduleTask(params, [pixelData.buffer]);
-      } else {
-        res = decodeTerrain(params, []);
-      }
-      pixelData = undefined;
-      return this.createQuantizedMeshData(tileRect, err, res);
-    } catch (err) {
-      console.log(err);
-      return this.emptyMesh(x, y, z);
-    }
+    return buildTerrainTile({
+      tilingScheme: this.tilingScheme,
+      pixelData,
+      maxVertexDistance,
+      tileCoord: { x, y, z },
+      errorLevel: err,
+      ellipsoidRadius: this.ellipsoid.maximumRadius,
+      tileSize,
+      interval: this.interval,
+      offset: this.offset,
+      overscaleFactor: 0,
+    });
   }
 
   errorAtZoom(zoom: number) {
@@ -231,87 +180,11 @@ export class MartiniTerrainProvider<TerrainProvider> {
 
   emptyMesh(x: number, y: number, z: number) {
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
-    const center = Rectangle.center(tileRect);
+    const tileCoord = { x, y, z };
 
-    const latScalar = Math.min(Math.abs(Math.sin(center.latitude)), 0.995);
-    let v = Math.max(
-      Math.ceil((200 / (z + 1)) * Math.pow(1 - latScalar, 0.25)),
-      4
-    );
-    const output = emptyMesh(v);
-    const err = this.errorAtZoom(z);
-    return this.createQuantizedMeshData(tileRect, err, output);
-  }
-
-  createQuantizedMeshData(tileRect, errorLevel, workerOutput) {
-    const {
-      minimumHeight,
-      maximumHeight,
-      quantizedVertices,
-      indices,
-      westIndices,
-      southIndices,
-      eastIndices,
-      northIndices,
-    } = workerOutput;
-
-    const err = errorLevel;
-    const skirtHeight = err * 20;
-
-    const center = Rectangle.center(tileRect);
-
-    // Calculating occlusion height is kind of messy currently, but it definitely works
-    const halfAngle = tileRect.width / 2;
-    const dr = Math.cos(halfAngle); // half tile width since our ref point is at the center
-
-    let occlusionHeight = dr * this.ellipsoid.maximumRadius + maximumHeight;
-    if (halfAngle > Math.PI / 4) {
-      occlusionHeight = (1 + halfAngle) * this.ellipsoid.maximumRadius;
-    }
-
-    const occlusionPoint = new Cartographic(
-      center.longitude,
-      center.latitude,
-      occlusionHeight
-      // Scaling factor of two just to be sure.
-    );
-
-    const horizonOcclusionPoint = this.ellipsoid.transformPositionToScaledSpace(
-      Cartographic.toCartesian(occlusionPoint)
-    );
-
-    let orientedBoundingBox = OrientedBoundingBox.fromRectangle(
-      tileRect,
-      minimumHeight,
-      maximumHeight,
-      this.tilingScheme.ellipsoid
-    );
-    let boundingSphere =
-      BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox);
-
-    // SE NW NE
-    // NE NW SE
-
-    let result = new QuantizedMeshTerrainData({
-      minimumHeight,
-      maximumHeight,
-      quantizedVertices,
-      indices,
-      boundingSphere,
-      orientedBoundingBox,
-      horizonOcclusionPoint,
-      westIndices,
-      southIndices,
-      eastIndices,
-      northIndices,
-      westSkirtHeight: skirtHeight,
-      southSkirtHeight: skirtHeight,
-      eastSkirtHeight: skirtHeight,
-      northSkirtHeight: skirtHeight,
-      childTileMask: 15,
-    });
-
-    return result;
+    const ellipsoid = this.ellipsoid ?? this.tilingScheme.ellipsoid;
+    const errorLevel = this.errorAtZoom(z);
+    return createEmptyMesh({ tileRect, ellipsoid, errorLevel, tileCoord });
   }
 
   getLevelMaximumGeometricError(level) {

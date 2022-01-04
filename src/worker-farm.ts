@@ -44,14 +44,49 @@ function handleMessage(msg) {
 
 class WorkerFarm {
   worker: Worker;
+  inProgressWorkers: number = 0;
+  maxWorkers: number = 5;
+  processingQueue: Function[] = [];
+
   constructor() {
     this.worker = new TerrainWorker();
     this.worker.onmessage = handleMessage;
   }
 
   async scheduleTask(params, transferableObjects) {
-    return await sendMessage(this.worker, params, transferableObjects);
+    const res = await sendMessage(this.worker, params, transferableObjects);
+    this.releaseWorker();
+    return res;
+  }
+
+  async holdForAvailableWorker(): Promise<void> {
+    let resultPromise: Promise<void>;
+    if (this.inProgressWorkers > this.maxWorkers) {
+      resultPromise = new Promise((resolve, reject) => {
+        this.processingQueue.push(resolve);
+      });
+    } else {
+      resultPromise = Promise.resolve(null);
+    }
+    await resultPromise;
+    this.inProgressWorkers += 1;
+  }
+
+  releaseWorker() {
+    this.inProgressWorkers -= 1;
+    if (this.processingQueue.length > 0) {
+      this.processingQueue.shift()();
+    }
   }
 }
 
+let workerFarm = null;
+function getWorkerFarm() {
+  if (!workerFarm) {
+    workerFarm = new WorkerFarm();
+  }
+  return workerFarm;
+}
+
+export { getWorkerFarm };
 export default WorkerFarm;

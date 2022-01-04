@@ -38,6 +38,28 @@ function mapboxTerrainToGrid(
   return terrain;
 }
 
+export interface TileCoordinates {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export interface TerrainWorkerInput extends QuantizedMeshOptions {
+  pixelData: Uint8ClampedArray;
+  maxVertexDistance: number | null;
+  tileCoord: TileCoordinates;
+
+  /**
+   * Terrain-RGB interval (default 0.1)
+   */
+  interval?: number;
+
+  /**
+   * Terrain-RGB offset (default -10000)
+   */
+  offset?: number;
+}
+
 export interface TerrainWorkerOutput {
   minimumHeight: number;
   maximumHeight: number;
