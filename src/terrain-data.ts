@@ -113,7 +113,7 @@ export function createTerrainData(
     eastSkirtHeight: skirtHeight,
     northSkirtHeight: skirtHeight,
     childTileMask: 15,
-    createdByUpsampling: overscaleFactor > 0,
+    createdByUpsampling: false, //overscaleFactor > 0,
     errorLevel: err,
     maxVertexDistance,
     tileSize,
@@ -160,6 +160,8 @@ function copy(src) {
 export async function buildTerrainTile(opts: TerrainBuilderOpts) {
   const { tilingScheme, overscaleFactor, ...workerOpts } = opts;
 
+  console.log("Building terrain tile", opts);
+
   const { x, y, z } = workerOpts.tileCoord;
   const tileRect = tilingScheme.tileXYToRectangle(x, y, z);
   const ellipsoid = tilingScheme.ellipsoid;
@@ -187,8 +189,8 @@ export async function buildTerrainTile(opts: TerrainBuilderOpts) {
       errorLevel,
       overscaleFactor,
       res,
-      maxVertexDistance,
-      tileSize
+      tileSize,
+      maxVertexDistance
     );
     console.log("Created terrain tile", x, y, z, res1);
     return res1;
@@ -232,7 +234,7 @@ export class RasterTerrainData
     super(opts);
     this.quantizedHeights = opts.quantizedHeights;
     this.errorLevel = opts.errorLevel;
-    this.maxVertexDistance = opts.maxVertexDistance ?? 256;
+    this.maxVertexDistance = opts.maxVertexDistance ?? opts.tileSize;
     this.tileSize = opts.tileSize;
   }
 
@@ -244,7 +246,6 @@ export class RasterTerrainData
     const dz = z - thisLevel;
     const scalar = Math.pow(2, dz);
 
-    const tileRect = tilingScheme.tileXYToRectangle(x, y, z);
     const ellipsoid = tilingScheme.ellipsoid;
 
     const err = this.errorLevel / scalar;
@@ -254,20 +255,30 @@ export class RasterTerrainData
       this.tileSize
     );
 
-    let upperLeft = { x: 0, y: 0 };
-    let lowerRight = { x: this.tileSize, y: this.tileSize };
+    console.log("Upsampling to tile with coordinate", x, y, z);
+    console.log(this.tileSize, scalar);
+
+    const upscaledX = thisX * scalar;
+    const x0 = ((x - upscaledX) * this.tileSize) / scalar;
+    const x1 = ((x + 1 - upscaledX) * this.tileSize) / scalar;
+    const upscaledY = thisY * scalar;
+    const y0 = ((y - upscaledY) * this.tileSize) / scalar;
+    const y1 = ((y + 1 - upscaledY) * this.tileSize) / scalar;
+
+    console.log("Window:", x0, y0, x1, y1);
 
     return buildTerrainTile({
       tilingScheme,
       heightData: {
         type: "heightfield",
         array: this.quantizedHeights,
+        window: { x0, x1, y0, y1 },
       },
       maxVertexDistance,
       tileCoord: { x, y, z },
       errorLevel: err,
       ellipsoidRadius: ellipsoid.maximumRadius,
-      tileSize: this.tileSize,
+      tileSize: x1 - x0,
       overscaleFactor: dz,
     });
   }

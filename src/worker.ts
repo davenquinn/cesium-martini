@@ -32,7 +32,7 @@ function decodeTerrain(
     );
     terrain = mapboxTerrainToGrid(pixels, interval, offset);
   } else {
-    terrain = heightData.array;
+    terrain = new Float32Array(heightData.array);
   }
 
   // Tile size must be maintained through the life of the worker
@@ -40,9 +40,17 @@ function decodeTerrain(
 
   const tile = martini.createTile(terrain);
 
+  const canUpscaleTile = heightData.type === "image";
+
   // get a mesh (vertices and triangles indices) for a 10m error
   const mesh = tile.getMesh(errorLevel, maxVertexDistance);
-  const res = createQuantizedMeshData(tile, mesh, tileSize, terrain);
+  const res = createQuantizedMeshData(
+    tile,
+    mesh,
+    tileSize,
+    // Only include vertex data if anticipate upscaling tile
+    canUpscaleTile ? terrain : null
+  );
   transferableObjects.push(res.indices.buffer);
   transferableObjects.push(res.quantizedVertices.buffer);
   if (res.quantizedHeights) {

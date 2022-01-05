@@ -46,6 +46,8 @@ export interface TileCoordinates {
   z: number;
 }
 
+type Window = { x0: number; x1: number; y0: number; y1: number };
+
 type RGBAImage = {
   type: "image";
   /**
@@ -62,6 +64,7 @@ type RGBAImage = {
 type Heightfield = {
   type: "heightfield";
   array: Float32Array;
+  window?: Window;
 };
 
 type HeightData = RGBAImage | Heightfield;
