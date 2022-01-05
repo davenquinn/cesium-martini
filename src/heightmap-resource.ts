@@ -1,8 +1,5 @@
 import { Resource } from "cesium";
 import { TileCoordinates } from "./terrain-provider";
-import offscreenCanvasSupported from "maplibre-gl/src/util/offscreen_canvas_supported";
-import { isImageBitmap } from "maplibre-gl/src/util/util";
-import browser from "maplibre-gl/src/util/browser";
 export interface HeightmapResource {
   tileSize: number;
   getTilePixels: (coords: TileCoordinates) => Promise<ImageData> | undefined;
