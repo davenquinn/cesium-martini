@@ -15,7 +15,8 @@ import {
   TerrainWorkerInput,
   TerrainWorkerOutput,
   emptyMesh,
-  testMeshData,
+  Window,
+  subsetByWindow,
 } from "./worker-util";
 
 interface QuantizedMeshTerrainOptions {
@@ -64,6 +65,8 @@ export function createTerrainData(
 
   const err = errorLevel;
   const skirtHeight = err * 20;
+
+  console.log(workerOutput, errorLevel);
 
   const center = Rectangle.center(tileRect);
 
@@ -151,12 +154,6 @@ interface TerrainBuilderOpts extends TerrainWorkerInput {
   overscaleFactor: number;
 }
 
-function copy(src) {
-  var dst = new ArrayBuffer(src.byteLength);
-  new Uint8Array(dst).set(new Uint8Array(src));
-  return dst;
-}
-
 export async function buildTerrainTile(opts: TerrainBuilderOpts) {
   const { tilingScheme, overscaleFactor, ...workerOpts } = opts;
 
@@ -173,7 +170,7 @@ export async function buildTerrainTile(opts: TerrainBuilderOpts) {
     let res;
     if (workerFarm != null) {
       res = await workerFarm.scheduleTask(workerOpts, [
-        copy(workerOpts.heightData.array.buffer),
+        workerOpts.heightData.array.buffer,
       ]);
     } else {
       res = decodeTerrain(workerOpts, []);
@@ -215,11 +212,6 @@ interface RasterParams {
 
 type RasterTerrainOptions = QuantizedMeshTerrainOptions & RasterParams;
 
-type Coordinate = {
-  x: number;
-  y: number;
-};
-
 export class RasterTerrainData
   extends QuantizedMeshTerrainData
   implements RasterParams
@@ -250,13 +242,13 @@ export class RasterTerrainData
 
     const err = this.errorLevel / scalar;
 
-    const maxVertexDistance = Math.max(
+    const maxVertexDistance = Math.min(
       this.maxVertexDistance * scalar,
       this.tileSize
     );
 
     console.log("Upsampling to tile with coordinate", x, y, z);
-    console.log(this.tileSize, scalar);
+    console.log(this.tileSize, scalar, err, maxVertexDistance);
 
     const upscaledX = thisX * scalar;
     const x0 = ((x - upscaledX) * this.tileSize) / scalar;
@@ -265,14 +257,14 @@ export class RasterTerrainData
     const y0 = ((y - upscaledY) * this.tileSize) / scalar;
     const y1 = ((y + 1 - upscaledY) * this.tileSize) / scalar;
 
-    console.log("Window:", x0, y0, x1, y1);
+    const window = { x0, x1, y0, y1 };
 
     return buildTerrainTile({
       tilingScheme,
       heightData: {
         type: "heightfield",
-        array: this.quantizedHeights,
-        window: { x0, x1, y0, y1 },
+        array: subsetByWindow(this.quantizedHeights, window, true),
+        window,
       },
       maxVertexDistance,
       tileCoord: { x, y, z },

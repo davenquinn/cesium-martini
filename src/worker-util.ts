@@ -46,7 +46,29 @@ export interface TileCoordinates {
   z: number;
 }
 
-type Window = { x0: number; x1: number; y0: number; y1: number };
+export type Window = { x0: number; x1: number; y0: number; y1: number };
+
+export function subsetByWindow(
+  array: Float32Array,
+  window: Window,
+  augmented: boolean
+) {
+  const sz = Math.sqrt(array.length);
+  const x0 = window.x0;
+  const x1 = window.x1;
+  const y0 = window.y0;
+  const y1 = window.y1;
+  const aug = augmented ? 1 : 0;
+  const n = Math.floor(x1 - x0) + aug;
+  const m = Math.floor(y1 - y0) + aug;
+  const result = new Float32Array(n * m);
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < n; j++) {
+      result[i * n + j] = array[(i + y0) * sz + j + x0];
+    }
+  }
+  return result;
+}
 
 type RGBAImage = {
   type: "image";

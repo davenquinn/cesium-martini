@@ -8,7 +8,7 @@ import Martini from "../martini/index.js";
 import "regenerator-runtime";
 // https://github.com/CesiumGS/cesium/blob/1.76/Source/WorkersES6/createVerticesFromQuantizedTerrainMesh.js
 
-let martini = null;
+let martiniCache = {};
 
 function decodeTerrain(
   parameters: TerrainWorkerInput,
@@ -32,18 +32,18 @@ function decodeTerrain(
     );
     terrain = mapboxTerrainToGrid(pixels, interval, offset);
   } else {
-    terrain = new Float32Array(heightData.array);
+    terrain = heightData.array;
   }
 
   // Tile size must be maintained through the life of the worker
-  martini ??= new Martini(tileSize + 1);
+  martiniCache[tileSize] ??= new Martini(tileSize + 1);
 
-  const tile = martini.createTile(terrain);
+  const tile = martiniCache[tileSize].createTile(terrain);
 
-  const canUpscaleTile = heightData.type === "image";
+  const canUpscaleTile = true; //heightData.type === "image";
 
   // get a mesh (vertices and triangles indices) for a 10m error
-  const mesh = tile.getMesh(errorLevel, maxVertexDistance);
+  const mesh = tile.getMesh(errorLevel, Math.min(maxVertexDistance, tileSize));
   const res = createQuantizedMeshData(
     tile,
     mesh,
