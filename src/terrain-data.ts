@@ -16,6 +16,7 @@ import {
   TerrainWorkerOutput,
   emptyMesh,
   Window,
+  TileCoordinates,
   subsetByWindow,
 } from "./worker-util";
 
@@ -65,8 +66,6 @@ export function createTerrainData(
 
   const err = errorLevel;
   const skirtHeight = err * 20;
-
-  console.log(workerOutput, errorLevel);
 
   const center = Rectangle.center(tileRect);
 
@@ -157,8 +156,6 @@ interface TerrainBuilderOpts extends TerrainWorkerInput {
 export async function buildTerrainTile(opts: TerrainBuilderOpts) {
   const { tilingScheme, overscaleFactor, ...workerOpts } = opts;
 
-  console.log("Building terrain tile", opts);
-
   const { x, y, z } = workerOpts.tileCoord;
   const tileRect = tilingScheme.tileXYToRectangle(x, y, z);
   const ellipsoid = tilingScheme.ellipsoid;
@@ -189,7 +186,6 @@ export async function buildTerrainTile(opts: TerrainBuilderOpts) {
       tileSize,
       maxVertexDistance
     );
-    console.log("Created terrain tile", x, y, z, res1);
     return res1;
   } catch (err) {
     console.log(err);
@@ -222,6 +218,7 @@ export class RasterTerrainData
   errorLevel: number;
   maxVertexDistance: number;
   tileSize: number;
+  private upsampleCount: number = 0;
   constructor(opts: RasterTerrainOptions) {
     super(opts);
     this.quantizedHeights = opts.quantizedHeights;
@@ -247,9 +244,6 @@ export class RasterTerrainData
       this.tileSize
     );
 
-    console.log("Upsampling to tile with coordinate", x, y, z);
-    console.log(this.tileSize, scalar, err, maxVertexDistance);
-
     const upscaledX = thisX * scalar;
     const x0 = ((x - upscaledX) * this.tileSize) / scalar;
     const x1 = ((x + 1 - upscaledX) * this.tileSize) / scalar;
@@ -259,7 +253,7 @@ export class RasterTerrainData
 
     const window = { x0, x1, y0, y1 };
 
-    return buildTerrainTile({
+    const res = buildTerrainTile({
       tilingScheme,
       heightData: {
         type: "heightfield",
@@ -273,6 +267,13 @@ export class RasterTerrainData
       tileSize: x1 - x0,
       overscaleFactor: dz,
     });
+    this.upsampleCount++;
+    if (this.upsampleCount == 4) {
+      // We've upsampled all tiles and don't need to keep terrain data around anymore.
+      this.quantizedHeights = undefined;
+    }
+
+    return res;
   }
 
   upsample(

@@ -19,7 +19,7 @@ import { createEmptyMesh, buildTerrainTile } from "./terrain-data";
 
 interface MartiniTerrainOpts {
   resource: HeightmapResource;
-  ellipsoid?: Ellipsoid;
+  tilingScheme?: TilingScheme;
   // workerURL: string;
   detailScalar?: number;
   minimumErrorLevel?: number;
@@ -30,7 +30,7 @@ interface MartiniTerrainOpts {
   fillPoles?: boolean;
 }
 
-class StretchedTilingScheme extends WebMercatorTilingScheme {
+export class StretchedTilingScheme extends WebMercatorTilingScheme {
   tileXYToRectangle(
     x: number,
     y: number,
@@ -39,7 +39,6 @@ class StretchedTilingScheme extends WebMercatorTilingScheme {
   ): Rectangle {
     let result = super.tileXYToRectangle(x, y, level);
     if (y == 0) {
-      //console.log("Top row", res, y, level);
       result.north = Math.PI / 2;
     }
     if (y + 1 == Math.pow(2, level)) {
@@ -58,7 +57,6 @@ export class MartiniTerrainProvider<TerrainProvider> {
   availability = null;
   errorEvent = new CEvent();
   tilingScheme: TilingScheme;
-  ellipsoid: Ellipsoid;
   workerFarm: WorkerFarm | null = null;
   inProgressWorkers: number = 0;
   levelOfDetailScalar: number | null = null;
@@ -84,7 +82,19 @@ export class MartiniTerrainProvider<TerrainProvider> {
     this.maxWorkers = opts.maxWorkers ?? 5;
     this.minZoomLevel = opts.minZoomLevel ?? 3;
     this.fillPoles = opts.fillPoles ?? true;
-    console.log("fillPoles", this.fillPoles);
+    if (opts.tilingScheme == null) {
+      let scheme = WebMercatorTilingScheme;
+      if (this.fillPoles) {
+        scheme = StretchedTilingScheme;
+      }
+      this.tilingScheme = new scheme({
+        numberOfLevelZeroTilesX: 1,
+        numberOfLevelZeroTilesY: 1,
+        ellipsoid: this.ellipsoid,
+      });
+    } else {
+      this.tilingScheme = opts.tilingScheme;
+    }
 
     this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
 
@@ -92,21 +102,12 @@ export class MartiniTerrainProvider<TerrainProvider> {
     this.readyPromise = Promise.resolve(true);
     this.minError = opts.minimumErrorLevel ?? 0.1;
 
-    this.errorEvent.addEventListener(console.log, this);
-    this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84;
+    //this.errorEvent.addEventListener(console.log, this);
+    this.ellipsoid =
+      opts.tilingScheme?.ellipsoid ?? opts.ellipsoid ?? Ellipsoid.WGS84;
     if (this.maxWorkers > 0) {
       this.workerFarm = new WorkerFarm();
     }
-
-    let scheme = WebMercatorTilingScheme;
-    if (this.fillPoles) {
-      scheme = StretchedTilingScheme;
-    }
-    this.tilingScheme = new scheme({
-      numberOfLevelZeroTilesX: 1,
-      numberOfLevelZeroTilesY: 1,
-      ellipsoid: this.ellipsoid,
-    });
 
     this._errorAtMinZoom = this.errorAtZoom(this.minZoomLevel);
   }
@@ -185,7 +186,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
     const tileCoord = { x, y, z };
 
-    const ellipsoid = this.ellipsoid ?? this.tilingScheme.ellipsoid;
+    const ellipsoid = this.tilingScheme.ellipsoid;
     const errorLevel = this.errorAtZoom(z);
     return createEmptyMesh({
       tileRect,
