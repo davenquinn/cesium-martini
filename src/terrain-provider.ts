@@ -149,14 +149,17 @@ export class MartiniTerrainProvider<TerrainProvider> {
 
     return buildTerrainTile({
       tilingScheme: this.tilingScheme,
-      pixelData,
+      heightData: {
+        type: "image",
+        array: pixelData,
+        interval: this.interval,
+        offset: this.offset,
+      },
       maxVertexDistance,
       tileCoord: { x, y, z },
       errorLevel: err,
       ellipsoidRadius: this.ellipsoid.maximumRadius,
       tileSize,
-      interval: this.interval,
-      offset: this.offset,
       overscaleFactor: 0,
     });
   }
@@ -184,7 +187,13 @@ export class MartiniTerrainProvider<TerrainProvider> {
 
     const ellipsoid = this.ellipsoid ?? this.tilingScheme.ellipsoid;
     const errorLevel = this.errorAtZoom(z);
-    return createEmptyMesh({ tileRect, ellipsoid, errorLevel, tileCoord });
+    return createEmptyMesh({
+      tileRect,
+      ellipsoid,
+      errorLevel,
+      tileCoord,
+      tileSize: 0,
+    });
   }
 
   getLevelMaximumGeometricError(level) {
@@ -203,6 +212,9 @@ export class MartiniTerrainProvider<TerrainProvider> {
   }
 
   getTileDataAvailable(x, y, z) {
+    if (z == 8) {
+      return false;
+    }
     return this.resource.getTileDataAvailable({ x, y, z });
   }
 }

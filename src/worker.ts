@@ -12,34 +12,43 @@ let martini = null;
 
 function decodeTerrain(
   parameters: TerrainWorkerInput,
-  transferableObjects?: any[]
+  transferableObjects?: Transferable[]
 ) {
   const {
-    pixelData,
+    heightData,
     tileSize = 256,
     errorLevel,
-    interval,
-    offset,
     maxVertexDistance,
   } = parameters;
 
-  const pixels = ndarray(
-    new Uint8Array(pixelData),
-    [tileSize, tileSize, 4],
-    [4, 4 * tileSize, 1],
-    0
-  );
+  let terrain: Float32Array;
+  if (heightData.type === "image") {
+    const { array, interval, offset } = heightData;
+    const pixels = ndarray(
+      new Uint8Array(array),
+      [tileSize, tileSize, 4],
+      [4, 4 * tileSize, 1],
+      0
+    );
+    terrain = mapboxTerrainToGrid(pixels, interval, offset);
+  } else {
+    terrain = heightData.array;
+  }
 
   // Tile size must be maintained through the life of the worker
   martini ??= new Martini(tileSize + 1);
-
-  const terrain = mapboxTerrainToGrid(pixels, interval, offset);
 
   const tile = martini.createTile(terrain);
 
   // get a mesh (vertices and triangles indices) for a 10m error
   const mesh = tile.getMesh(errorLevel, maxVertexDistance);
-  return createQuantizedMeshData(tile, mesh, tileSize);
+  const res = createQuantizedMeshData(tile, mesh, tileSize, terrain);
+  transferableObjects.push(res.indices.buffer);
+  transferableObjects.push(res.quantizedVertices.buffer);
+  if (res.quantizedHeights) {
+    transferableObjects.push(res.quantizedHeights.buffer);
+  }
+  return res;
 }
 
 export { decodeTerrain };
@@ -47,15 +56,14 @@ export { decodeTerrain };
 self.onmessage = function (msg) {
   const { id, payload } = msg.data;
   if (id == null) return;
-  let objects = [];
+  let objects: Transferable[] = [];
   let res = null;
   try {
-    res = decodeTerrain(payload);
-    objects.push(res.indices.buffer);
-    objects.push(res.quantizedVertices.buffer);
+    res = decodeTerrain(payload, objects);
     self.postMessage({ id, payload: res }, objects);
   } catch (err) {
-    self.postMessage({ id, err: err.toString() });
+    const msg = err.message ?? err;
+    self.postMessage({ id, err: msg.toString() });
   } finally {
     res = null;
     objects = null;

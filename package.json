@@ -15,8 +15,9 @@
   "license": "ISC",
   "dependencies": {
     "@mapbox/martini": "^0.2.0",
-    "@types/ndarray": "^1.0.7",
-    "cesium": "^1.81.0"
+    "@types/ndarray": "^1.0.11",
+    "cesium": "^1.81.0",
+    "ndarray": "^1.0.19"
   },
   "devDependencies": {
     "@babel/core": "^7.16.7",

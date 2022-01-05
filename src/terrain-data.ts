@@ -15,6 +15,7 @@ import {
   TerrainWorkerInput,
   TerrainWorkerOutput,
   emptyMesh,
+  testMeshData,
 } from "./worker-util";
 
 interface QuantizedMeshTerrainOptions {
@@ -46,7 +47,8 @@ export function createTerrainData(
   errorLevel: number,
   overscaleFactor: number,
   workerOutput: TerrainWorkerOutput,
-  workerInput: TerrainWorkerInput | undefined
+  tileSize: number,
+  maxVertexDistance: number | null
 ) {
   const {
     minimumHeight,
@@ -57,6 +59,7 @@ export function createTerrainData(
     southIndices,
     eastIndices,
     northIndices,
+    quantizedHeights,
   } = workerOutput;
 
   const err = errorLevel;
@@ -110,8 +113,11 @@ export function createTerrainData(
     eastSkirtHeight: skirtHeight,
     northSkirtHeight: skirtHeight,
     childTileMask: 15,
-    workerInput,
-    overscaleFactor,
+    createdByUpsampling: overscaleFactor > 0,
+    errorLevel: err,
+    maxVertexDistance,
+    tileSize,
+    quantizedHeights,
   });
 }
 
@@ -120,9 +126,12 @@ interface EmptyMeshOptions {
   tileCoord: TileCoordinates;
   ellipsoid: Ellipsoid;
   errorLevel: number;
+  tileSize: number;
 }
 
-export function createEmptyMesh(opts: EmptyMeshOptions): RasterTerrainData {
+export function createEmptyMesh(
+  opts: EmptyMeshOptions
+): QuantizedMeshTerrainData {
   const { tileRect, tileCoord, errorLevel, ellipsoid } = opts;
   const center = Rectangle.center(tileRect);
   const { z } = tileCoord;
@@ -133,19 +142,19 @@ export function createEmptyMesh(opts: EmptyMeshOptions): RasterTerrainData {
     4
   );
   const output = emptyMesh(v);
-  return createTerrainData(
-    tileRect,
-    ellipsoid,
-    errorLevel,
-    0,
-    output,
-    undefined
-  );
+  // We use zero for some undefined values
+  return createTerrainData(tileRect, ellipsoid, errorLevel, 0, output, 0, 0);
 }
 
 interface TerrainBuilderOpts extends TerrainWorkerInput {
   tilingScheme: TilingScheme;
   overscaleFactor: number;
+}
+
+function copy(src) {
+  var dst = new ArrayBuffer(src.byteLength);
+  new Uint8Array(dst).set(new Uint8Array(src));
+  return dst;
 }
 
 export async function buildTerrainTile(opts: TerrainBuilderOpts) {
@@ -155,38 +164,59 @@ export async function buildTerrainTile(opts: TerrainBuilderOpts) {
   const tileRect = tilingScheme.tileXYToRectangle(x, y, z);
   const ellipsoid = tilingScheme.ellipsoid;
 
-  const { errorLevel, tileCoord } = workerOpts;
+  const { errorLevel, tileCoord, maxVertexDistance, tileSize } = workerOpts;
   const workerFarm = getWorkerFarm();
 
   try {
     let res;
     if (workerFarm != null) {
       res = await workerFarm.scheduleTask(workerOpts, [
-        workerOpts.pixelData.buffer,
+        copy(workerOpts.heightData.array.buffer),
       ]);
     } else {
       res = decodeTerrain(workerOpts, []);
     }
-    return createTerrainData(
+
+    // if (true) {
+    //   res.quantizedHeights = undefined;
+    // }
+
+    const res1 = createTerrainData(
       tileRect,
       ellipsoid,
       errorLevel,
       overscaleFactor,
       res,
-      workerOpts
+      maxVertexDistance,
+      tileSize
     );
+    console.log("Created terrain tile", x, y, z, res1);
+    return res1;
   } catch (err) {
     console.log(err);
-    return createEmptyMesh({ tileRect, errorLevel, ellipsoid, tileCoord });
+    return createEmptyMesh({
+      tileRect,
+      errorLevel,
+      ellipsoid,
+      tileCoord,
+      tileSize: 0,
+    });
   }
 }
 
 interface RasterParams {
-  workerInput: TerrainWorkerInput;
-  overscaleFactor?: number;
+  quantizedHeights?: Float32Array;
+  errorLevel: number;
+  maxVertexDistance: number;
+  tileSize: number;
 }
 
 type RasterTerrainOptions = QuantizedMeshTerrainOptions & RasterParams;
+
+type Coordinate = {
+  x: number;
+  y: number;
+};
 
 export class RasterTerrainData
   extends QuantizedMeshTerrainData
@@ -194,47 +224,55 @@ export class RasterTerrainData
 {
   workerInput: TerrainWorkerInput | undefined;
   levelOverviews: RasterTerrainData[] = [];
-  overscaleFactor: number = 0;
+  quantizedHeights: Float32Array;
+  errorLevel: number;
+  maxVertexDistance: number;
+  tileSize: number;
   constructor(opts: RasterTerrainOptions) {
     super(opts);
-    this.workerInput = opts.workerInput;
-    this.overscaleFactor = opts.overscaleFactor || 0;
+    this.quantizedHeights = opts.quantizedHeights;
+    this.errorLevel = opts.errorLevel;
+    this.maxVertexDistance = opts.maxVertexDistance ?? 256;
+    this.tileSize = opts.tileSize;
   }
 
-  async getDescendantTerrainTile(
-    tilingScheme: TilingScheme,
-    thisLevel: number,
-    descendantLevel: number
-  ): Promise<RasterTerrainData | QuantizedMeshTerrainData> {
-    if (this.workerInput == null) {
-      return this;
-    }
-    const dz = descendantLevel - thisLevel;
-    if (this.overscaleFactor == dz) {
-      return this;
-    }
-    if (this.overscaleFactor > 3) {
-      // We are dealing with a tile that has already been overscaled a lot
-      return this;
-    }
-    if (this.levelOverviews[dz] != null) {
-      return this.levelOverviews[dz];
-    }
+  _upsample(tilingScheme, thisX, thisY, thisLevel, x, y, z) {
+    // Something wonky about our tiling scheme, perhaps
+    // 12/2215/2293 @2x
+    //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
+
+    const dz = z - thisLevel;
     const scalar = Math.pow(2, dz);
-    this.levelOverviews[dz] = await buildTerrainTile({
+
+    const tileRect = tilingScheme.tileXYToRectangle(x, y, z);
+    const ellipsoid = tilingScheme.ellipsoid;
+
+    const err = this.errorLevel / scalar;
+
+    const maxVertexDistance = Math.max(
+      this.maxVertexDistance * scalar,
+      this.tileSize
+    );
+
+    let upperLeft = { x: 0, y: 0 };
+    let lowerRight = { x: this.tileSize, y: this.tileSize };
+
+    return buildTerrainTile({
       tilingScheme,
-      ...this.workerInput,
+      heightData: {
+        type: "heightfield",
+        array: this.quantizedHeights,
+      },
+      maxVertexDistance,
+      tileCoord: { x, y, z },
+      errorLevel: err,
+      ellipsoidRadius: ellipsoid.maximumRadius,
+      tileSize: this.tileSize,
       overscaleFactor: dz,
-      errorLevel: this.workerInput.errorLevel / scalar,
-      maxVertexDistance: Math.max(
-        Math.round(this.workerInput.maxVertexDistance / scalar),
-        1
-      ),
     });
-    return this.levelOverviews[dz];
   }
 
-  async upsample(
+  upsample(
     tilingScheme,
     thisX,
     thisY,
@@ -243,12 +281,18 @@ export class RasterTerrainData
     descendantY,
     descendantLevel
   ) {
-    const tile = await this.getDescendantTerrainTile(
-      tilingScheme,
-      thisLevel,
-      descendantLevel
-    );
-    return tile.upsample(
+    if (this.quantizedHeights == null) {
+      return super.upsample(
+        tilingScheme,
+        thisX,
+        thisY,
+        thisLevel,
+        descendantX,
+        descendantY,
+        descendantLevel
+      );
+    }
+    return this._upsample(
       tilingScheme,
       thisX,
       thisY,
