@@ -197,7 +197,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
   scaledErrorForTile(x: number, y: number, z: number) {
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
     const center = Rectangle.center(tileRect);
-    return this.errorAtZoom(z) / (1 - Math.sin(center.latitude));
+    return this.errorAtZoom(z) / Math.pow(1 - Math.sin(center.latitude), 2);
   }
 
   maxVertexDistance(tileRect: Rectangle) {
