@@ -12,12 +12,20 @@ const extensions = [".js", ".ts"];
 
 export default {
   input: "src/index.ts", // our source file
-  output: {
-    file: pkg.main,
-    format: "cjs",
-    sourcemap: true,
-    exports: "auto",
-  },
+  output: [
+    {
+      file: pkg.main,
+      format: "cjs",
+      sourcemap: true,
+      exports: "auto",
+    },
+    {
+      file: pkg.module,
+      format: "esm",
+      sourcemap: true,
+      exports: "auto",
+    },
+  ],
   external: Object.keys(deps),
   plugins: [
     resolve({ extensions, module: true }),

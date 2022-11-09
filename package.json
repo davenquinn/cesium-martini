@@ -3,6 +3,13 @@
   "version": "1.2.3",
   "description": "",
   "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "exports": {
+    ".": {
+      "require": "./dist/index.js",
+      "import": "./dist/index.esm.js"
+    }
+  },
   "scripts": {
     "build": "rollup -c",
     "watch": "rollup -c -w",
