@@ -33,12 +33,30 @@ npm install --save @macrostrat/cesium-martini
 
 ## Development
 
+As of version `1.3.x`, `cesium-martini` development is tested with the Yarn package manager.
+Your mileage with `npm` may vary.
+
+### Quick start
+
+1. Clone the repository
+2. Run `git submodule update --init` to fetch the [martini](https://github.com/mapbox/martini) submodule
+2. Install dependencies with `yarn install`
+3. Build the package with `yarn run build`
+
 After cloning this repository, you can build the module (using Rollup) with
-`npm run build`, or build and watch for changes with `npm run watch`.
+`yarn run build`, or build and watch for changes with `yarn run watch`.
+
+### Example applications
+
+Several example applications are available in the [`examples/`](examples/) directory and runnable from the root project.
+The main example is built with Vite and others are built with Webpack v5. As well as showing how to use this module, these examples contain configuration for bundling Cesium in each packaging environment.
 
 To run an example application, add `MAPBOX_API_TOKEN=<your-mapbox-token>` to a `.env` file.
-in the root of this repository. `npm run dev` bundles and runs the test
-application, which runs in the Webpack development server on `http://localhost:8080`.
+in the root of this repository, and then start the appropriate example:
+
+- `yarn run example` (Vite)
+- `yarn run example:webpack` (Webpack)
+- `yarn run example:webpack-react` (Webpack + React)
 
 Contributions in the form of bug reports and pull requests are welcome.
 These can be to add functionality (e.g. optional normal-map generation) or for
@@ -97,7 +115,7 @@ of Cesium would provide some guidance here.
 
 ### Outstanding bugs and issues
 
-- [ ] High-resolution `@2x` tiles are notionally supported but not well-tested.
+- [x] High-resolution `@2x` tiles are notionally supported but not well-tested.
 - [ ] There is no formal testing framework to catch regressions.
 - [ ] TypeScript types are discarded on compilation rather than checked properly.
 
@@ -123,6 +141,24 @@ Pull requests for any and all of these priorities are appreciated!
 
 ## Changelog
 
+### `[1.3.0]`: September 2023
+
+- Add compilation to ESModules, which allows the package to be used with modern bundlers like [**Vite**](https://vitejs.dev). *Contributed by [@fc](https://github.com/fc).*
+- Change latitude-based scaling factor for tile error to improve fidelity at high latitudes.
+- Remove `regenerator-runtime` from web-worker code, targeting modern platforms.
+
+#### Development environment
+
+We reorganized the development environment and examples through a set of interrelated changes, for a more modern overall design.
+
+- Switched to `yarn` from `npm` as the default package manager
+- Enabled Yarn Plug'n'Play for faster development
+- Created a Vite example application
+- Migrated Webpack examples to Webpack 5
+- Moved all examples to the `examples/` directory as Yarn workspaces, enabling
+  separation of dependencies
+
+
 ### `[1.2.0]`: November 2021
 
 - Globe caps! (disable using the `fillPoles` option).
@@ -130,6 +166,7 @@ Pull requests for any and all of these priorities are appreciated!
 - Fixed small errors in tile occlusion code
 - Added a `minZoom` configuration option to prevent excessive loading of low-resolution tiles
 - Four (!) pull requests from [@stuarta0](https://github.com/stuarta0) to improve loading of non-Mapbox tilesets
+
 
 ### `[1.1.3]`: June 2021
 

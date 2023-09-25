@@ -5,7 +5,6 @@ import {
 } from "./worker-util";
 import ndarray from "ndarray";
 import Martini from "../martini/index.js";
-import "regenerator-runtime";
 // https://github.com/CesiumGS/cesium/blob/1.76/Source/WorkersES6/createVerticesFromQuantizedTerrainMesh.js
 
 export interface TerrainWorkerInput extends QuantizedMeshOptions {

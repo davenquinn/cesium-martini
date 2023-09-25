@@ -1,3 +1,11 @@
 node_modules
 .env
 dist
+
+# Yarn PNP
+.yarn/cache
+.yarn/unplugged
+.yarn/install-state.gz
+.pnp.*
+
+.vite
