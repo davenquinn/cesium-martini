@@ -68,7 +68,7 @@ module.exports = {
       ],
     }),
     new DotenvPlugin({
-      path: "./.env",
+      path: "../../.env",
     }),
     new DefinePlugin({
       // Define relative base path in cesium for loading assets

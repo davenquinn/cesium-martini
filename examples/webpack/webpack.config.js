@@ -10,6 +10,7 @@ const cesiumWorkers = "../Build/CesiumUnminified/Workers";
 
 module.exports = {
   // Enable sourcemaps for debugging webpack's output.
+  mode: "development",
   devtool: "source-map",
   resolve: {
     extensions: [".ts", ".js"],
@@ -41,16 +42,7 @@ module.exports = {
         use: ["file-loader"]
       },
       { test: /\.css$/, use: ["style-loader", "css-loader"] },
-      // All output '.js' files will have any sourcemaps re-processed by 'source-map-loader'.
-      {
-        enforce: "pre",
-        test: /\.js$/,
-        loader: "source-map-loader"
-      },
     ]
-  },
-  node: {
-    fs: "empty"
   },
   amd: {
     // Enable webpack-friendly use of require in Cesium
@@ -68,7 +60,7 @@ module.exports = {
       ],
     }),
     new DotenvPlugin({
-      path: "./.env",
+      path: "../../.env",
     }),
     new DefinePlugin({
       // Define relative base path in cesium for loading assets

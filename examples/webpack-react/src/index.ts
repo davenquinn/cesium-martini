@@ -1,11 +1,10 @@
 import "core-js/stable";
-import "regenerator-runtime/runtime";
 import "./main.css";
 import "cesiumSource/Widgets/widgets.css";
 const Cesium: any = require("cesiumSource/Cesium");
 // Import @types/cesium to use along with CesiumJS
 import { MapboxImageryProvider } from "cesium";
-import TerrainProvider from "../../dist";
+import TerrainProvider from "../../../dist";
 import { render } from "react-dom";
 import { useRef, useEffect } from "react";
 import h from "@macrostrat/hyper";
