@@ -35,13 +35,21 @@ module.exports = {
       {
         test: /\.ts$/,
         exclude: /node_modules/,
-        use: ["babel-loader"]
+        use: [{
+          loader: require.resolve("babel-loader"),
+          options: {
+            presets: [
+              require.resolve("@babel/preset-env"),
+              require.resolve("@babel/preset-typescript"),
+            ]
+          }
+        }]
       },
       {
         test: /\.(png|svg)$/,
-        use: ["file-loader"]
+        use: [require.resolve("file-loader")]
       },
-      { test: /\.css$/, use: ["style-loader", "css-loader"] },
+      { test: /\.css$/, use: [require.resolve("style-loader"), require.resolve("css-loader")] },
     ]
   },
   amd: {
