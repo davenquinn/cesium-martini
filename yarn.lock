@@ -1704,6 +1704,18 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@macrostrat/hyper@npm:^2.2.1":
+  version: 2.2.1
+  resolution: "@macrostrat/hyper@npm:2.2.1"
+  dependencies:
+    classnames: ^2.3.1
+  peerDependencies:
+    "@types/react": ">= 16.0.0 < 19.0.0"
+    react: ">= 0.12.0 < 19.0.0"
+  checksum: 30c1fba5e5343f4dd643713c72dc2a843a43cfe8ab8962c30ae81d659800378f680c0ef9f612ce686e71f16ac973faa5af1a3fbcf68480105768cbe84651431b
+  languageName: node
+  linkType: hard
+
 "@mapbox/martini@npm:^0.2.0":
   version: 0.2.0
   resolution: "@mapbox/martini@npm:0.2.0"
@@ -3862,6 +3874,8 @@ __metadata:
     "@babel/core": ^7.19.6
     "@babel/preset-env": ^7.19.4
     "@babel/preset-typescript": ^7.18.6
+    "@macrostrat/hyper": ^2.2.1
+    assert: ^2.1.0
     babel-loader: ^8.2.3
     cesium: ^1.109.0
     copy-webpack-plugin: ^11.0.0
@@ -3870,13 +3884,15 @@ __metadata:
     dotenv-webpack: ^8.0.1
     file-loader: ^6.2.0
     html-webpack-plugin: ^5.3.2
+    path-browserify: ^1.0.1
     react: ^17.0.2
     react-dom: ^17.0.2
     resium: ^1.13.1
     style-loader: ^3.2.1
-    typescript: ^5.0.0
+    typescript: ^5
     webpack: ^5.64.1
     webpack-cli: ^4.9.1
+    webpack-config: "workspace:*"
     webpack-dev-server: ^4.3.1
   languageName: unknown
   linkType: soft
@@ -3902,6 +3918,7 @@ __metadata:
     typescript: ^5
     webpack: ^5.64.1
     webpack-cli: ^4.9.1
+    webpack-config: "workspace:*"
     webpack-dev-server: ^4.3.1
   languageName: unknown
   linkType: soft
@@ -7484,6 +7501,31 @@ __metadata:
   checksum: 2ff5355ac348e6b40f2630a203b981728834dca96d6d621be96249764b2d0fc01dd54edfcc37f02214d02935de2cf0eefd6ce689d970d154ef493f01ba922390
   languageName: node
   linkType: hard
+
+"webpack-config@workspace:*, webpack-config@workspace:examples/_webpack-config":
+  version: 0.0.0-use.local
+  resolution: "webpack-config@workspace:examples/_webpack-config"
+  dependencies:
+    "@babel/core": ^7.19.6
+    "@babel/preset-env": ^7.19.4
+    "@babel/preset-typescript": ^7.18.6
+    assert: ^2.1.0
+    babel-loader: ^8.2.3
+    cesium: ^1.109.0
+    copy-webpack-plugin: ^11.0.0
+    core-js: ^3.19.0
+    css-loader: ^6.2.0
+    dotenv-webpack: ^8.0.1
+    file-loader: ^6.2.0
+    html-webpack-plugin: ^5.3.2
+    path-browserify: ^1.0.1
+    style-loader: ^3.2.1
+    typescript: ^5
+    webpack: ^5.64.1
+    webpack-cli: ^4.9.1
+    webpack-dev-server: ^4.3.1
+  languageName: unknown
+  linkType: soft
 
 "webpack-dev-middleware@npm:^5.3.1":
   version: 5.3.3

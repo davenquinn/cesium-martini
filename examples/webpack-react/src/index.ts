@@ -51,6 +51,9 @@ function CesiumView() {
       full: true,
       terrainProvider: terrainProvider,
       imageryProvider: false,
+      animation: false,
+      baseLayerPicker: false,
+      timeline: false
     },
     [h(SatelliteLayer), h(Inspector)]
   );
