@@ -6,8 +6,8 @@
   "module": "dist/index.esm.js",
   "exports": {
     ".": {
-      "require": "./dist/index.js",
-      "import": "./dist/index.esm.js"
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.js"
     }
   },
   "scripts": {
