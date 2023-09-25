@@ -2,7 +2,7 @@ import "core-js/stable";
 import "regenerator-runtime/runtime";
 import "./main.css";
 import "cesiumSource/Widgets/widgets.css";
-const Cesium: any = require("cesiumSource/Cesium");
+import Cesium from "cesium";
 // Import @types/cesium to use along with CesiumJS
 import { MapboxImageryProvider } from "cesium";
 import TerrainProvider from "../../dist";
@@ -17,6 +17,7 @@ const terrainProvider = new TerrainProvider({
   hasWaterMask: false,
   accessToken: process.env.MAPBOX_API_TOKEN,
   highResolution: true,
+  maxWorkers: 0,
   credit: "Mapbox",
 });
 

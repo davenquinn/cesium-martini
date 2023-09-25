@@ -2,19 +2,22 @@
   "name": "@macrostrat/cesium-martini",
   "version": "1.2.3",
   "description": "",
-  "main": "dist/index.js",
-  "module": "dist/index.esm.js",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "source": "src/index.ts",
   "exports": {
     ".": {
-      "require": "./dist/index.js",
-      "import": "./dist/index.esm.js"
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     }
   },
   "scripts": {
-    "build": "rollup -c",
-    "watch": "rollup -c -w",
-    "dev": "npm run watch & webpack-dev-server examples/simple/index.ts",
-    "dev:react": "npm run watch & webpack-dev-server examples/react/index.ts",
+    "build": "parcel build",
+    "watch": "parcel watch",
+    "example": "webpack-dev-server examples/simple/index.ts",
+    "example:react": "webpack-dev-server examples/react/index.ts",
+    "dev": "yarn run watch & yarn run example",
+    "dev:react": "yarn run watch & yarn run example:react",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepublishOnly": "npm run build"
   },
@@ -24,8 +27,28 @@
     "@mapbox/martini": "^0.2.0",
     "@types/ndarray": "^1.0.7",
     "axios": "^0.21.1",
-    "cesium": "^1.81.0",
-    "get-pixels": "^3.3.2"
+    "cesium": "^1.96.0",
+    "get-pixels": "^3.3.2",
+    "ndarray": "^1.0.19"
+  },
+  "workspaces": [
+    "example"
+  ],
+  "targets": {
+    "main": {
+      "includeNodeModules": [
+        "ndarray",
+        "iota-array",
+        "is-buffer"
+      ]
+    },
+    "module": {
+      "includeNodeModules": [
+        "ndarray",
+        "iota-array",
+        "is-buffer"
+      ]
+    }
   },
   "devDependencies": {
     "@babel/core": "^7.11.1",
@@ -40,8 +63,10 @@
     "@rollup/plugin-babel": "^5.3.0",
     "@rollup/plugin-commonjs": "^17.0.0",
     "@rollup/plugin-node-resolve": "^7.1.3",
+    "assert": "^2.0.0",
     "babel-loader": "^8.2.3",
     "babel-plugin-transform-runtime": "^6.23.0",
+    "buffer": "^5.5.0||^6.0.0",
     "copy-webpack-plugin": "^5.1.1",
     "core-js": "^3.19.0",
     "css-loader": "^3.5.2",
@@ -49,6 +74,8 @@
     "file-loader": "^6.0.0",
     "html-webpack-plugin": "^4.2.0",
     "npm-run-all": "^4.1.5",
+    "parcel": "^2.9.3",
+    "punycode": "^1.4.1",
     "react": "^17.0.2",
     "react-dom": "^17.0.2",
     "regenerator-runtime": "^0.13.7",
@@ -56,11 +83,15 @@
     "rollup": "^2.39.0",
     "rollup-plugin-web-worker-loader": "^1.5.0",
     "source-map-loader": "^0.2.4",
+    "stream-browserify": "^3.0.0",
+    "stream-http": "^3.1.0",
     "style-loader": "^1.1.4",
     "ts-loader": "^7.0.0",
     "typescript": "^3.8.3",
+    "util": "^0.12.3",
     "webpack": "^4.42.1",
     "webpack-cli": "^3.3.11",
     "webpack-dev-server": "^3.10.3"
-  }
+  },
+  "packageManager": "yarn@3.6.3"
 }

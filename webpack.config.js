@@ -12,10 +12,6 @@ module.exports = {
   devtool: "source-map",
   resolve: {
     extensions: [".ts", ".tsx", ".js"],
-    alias: {
-      // CesiumJS module name
-      cesiumSource: path.resolve(__dirname, cesiumSource)
-    }
   },
   module: {
     unknownContextCritical: false,

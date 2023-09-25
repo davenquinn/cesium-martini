@@ -10,15 +10,14 @@ import {
   OrientedBoundingBox,
   TerrainProvider,
   Credit,
+  TilingScheme
 } from "cesium";
 import WorkerFarm from "./worker-farm";
-import { TerrainWorkerInput, decodeTerrain } from "./worker";
-import TilingScheme from "cesium/Source/Core/TilingScheme";
+import { TerrainWorkerInput, decodeTerrain, emptyMesh } from "./worker-util";
 import { HeightmapResource } from "./heightmap-resource";
 import MapboxTerrainResource, {
   MapboxTerrainResourceOpts,
 } from "./mapbox-resource";
-import { emptyMesh } from "./worker-util";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
@@ -172,11 +171,12 @@ export class MartiniTerrainProvider<TerrainProvider> {
         offset: this.offset,
       };
 
+      //const res = await this.workerFarm.scheduleTask(params, [pixelData.buffer]);
       let res;
       if (this.workerFarm != null) {
         res = await this.workerFarm.scheduleTask(params, [pixelData.buffer]);
       } else {
-        res = decodeTerrain(params, []);
+        res = decodeTerrain(params, this.martiniRef);
       }
       pixelData = undefined;
       px = undefined;
@@ -186,6 +186,8 @@ export class MartiniTerrainProvider<TerrainProvider> {
       return this.emptyMesh(x, y, z);
     }
   }
+
+  martiniRef = null;
 
   errorAtZoom(zoom: number) {
     return Math.max(
