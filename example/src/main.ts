@@ -1,5 +1,3 @@
-import "core-js/stable";
-import "regenerator-runtime/runtime";
 import "cesium/Source/Widgets/widgets.css";
 import * as Cesium from "cesium"
 import "./main.css";
@@ -11,8 +9,9 @@ const terrainProvider = new TerrainProvider({
   requestVertexNormals: false,
   requestWaterMask: false,
   accessToken: import.meta.env.VITE_MAPBOX_API_TOKEN,
-  skipOddLevels: false,
-  highResolution: false,
+  // TODO: skipOddLevels breaks request render mode (again) 
+  //skipOddLevels: true,
+  highResolution: true,
 });
 
 let satellite = new Cesium.MapboxImageryProvider({
@@ -20,8 +19,6 @@ let satellite = new Cesium.MapboxImageryProvider({
   maximumLevel: 19,
   accessToken: import.meta.env.VITE_MAPBOX_API_TOKEN,
 });
-
-console.log(satellite)
 
 var opts = {
   terrainProvider,

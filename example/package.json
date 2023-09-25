@@ -10,5 +10,8 @@
         "vite": "^4.4.9",
         "vite-plugin-cesium": "^1.2.22"
     },
-    "packageManager": "yarn@3.6.3"
+    "packageManager": "yarn@3.6.3",
+    "dependencies": {
+        "cesium": "^1.109.0"
+    }
 }

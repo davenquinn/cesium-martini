@@ -27,6 +27,9 @@
     "cesium": "^1.81.0",
     "get-pixels": "^3.3.2"
   },
+  "workspaces": [
+    "example"
+  ],
   "devDependencies": {
     "@babel/core": "^7.11.1",
     "@babel/plugin-proposal-class-properties": "^7.8.3",
