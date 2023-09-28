@@ -232,8 +232,6 @@ export class RasterTerrainData
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
 
-    console.log("Upsampling", thisX, thisY, thisLevel, x, y, z);
-
     const dz = z - thisLevel;
     const scalar = Math.pow(2, dz);
 

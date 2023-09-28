@@ -12,7 +12,9 @@ interface CanvasRef {
 }
 export interface DefaultHeightmapResourceOpts {
   url?: string;
+  // Legacy option, use skipZoomLevels instead
   skipOddLevels?: boolean;
+  skipZoomLevels: [number] | ((z: number) => boolean);
   maxZoom?: number;
   tileSize?: number;
 }
@@ -21,14 +23,23 @@ export class DefaultHeightmapResource implements HeightmapResource {
   resource: Resource = null;
   tileSize: number = 256;
   maxZoom: number;
-  skipOddLevels: boolean = false;
+  skipZoomLevel: (z: number) => boolean;
   contextQueue: CanvasRef[];
 
   constructor(opts: DefaultHeightmapResourceOpts = {}) {
     if (opts.url) {
       this.resource = Resource.createIfNeeded(opts.url);
     }
-    this.skipOddLevels = opts.skipOddLevels ?? false;
+    if (opts.skipZoomLevels) {
+      if (Array.isArray(opts.skipZoomLevels)) {
+        this.skipZoomLevel = (z: number) => opts.skipZoomLevels.includes(z);
+      } else {
+        this.skipZoomLevel = opts.skipZoomLevels;
+      }
+    } else if (opts.skipOddLevels) {
+      this.skipZoomLevel = (z: number) => z % 2 == 1;
+    }
+
     this.tileSize = opts.tileSize ?? 256;
     this.maxZoom = opts.maxZoom ?? 15;
     this.contextQueue = [];
@@ -94,7 +105,7 @@ export class DefaultHeightmapResource implements HeightmapResource {
     So we have to make sure that we always report zoom 1 tiles as available.
     */
     if (z < 2) return true;
-    if (z % 2 == 1 && this.skipOddLevels) return false;
+    if (this.skipZoomLevel(z)) return false;
     if (z > this.maxZoom) return false;
     return true;
   }
