@@ -213,9 +213,6 @@ export class MartiniTerrainProvider<TerrainProvider> {
   }
 
   getTileDataAvailable(x, y, z) {
-    if (z == 8) {
-      return false;
-    }
     return this.resource.getTileDataAvailable({ x, y, z });
   }
 }

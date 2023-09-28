@@ -89,6 +89,11 @@ export class DefaultHeightmapResource implements HeightmapResource {
 
   getTileDataAvailable({ z }) {
     if (z == this.maxZoom) return true;
+    /* Weird hack:
+    For some reason, request render mode breaks if zoom 1 tiles are disabled.
+    So we have to make sure that we always report zoom 1 tiles as available.
+    */
+    if (z < 2) return true;
     if (z % 2 == 1 && this.skipOddLevels) return false;
     if (z > this.maxZoom) return false;
     return true;
