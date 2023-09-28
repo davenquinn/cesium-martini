@@ -2,10 +2,12 @@
   "name": "@macrostrat/cesium-martini",
   "version": "1.3.0",
   "description": "",
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "source": "./src/index.ts",
   "exports": {
     ".": {
+      "typescript": "./src/index.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     }
