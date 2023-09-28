@@ -15,13 +15,20 @@ delete external["maplibre-gl"];
 
 export default {
   input: "src/index.ts", // our source file
-  output: {
-    file: pkg.main,
-    format: "cjs",
-    sourcemap: true,
-    exports: "auto",
-  },
-  external,
+  output: [
+    {
+      file: pkg.main,
+      format: "cjs",
+      sourcemap: true,
+      exports: "named",
+    },
+    {
+      file: pkg.module,
+      format: "esm",
+      sourcemap: true,
+    },
+  ],
+  external: Object.keys(deps),
   plugins: [
     resolve({ extensions, module: true }),
     commonjs(),

@@ -1,0 +1,19 @@
+{
+  "name": "example-webpack",
+  "private": true,
+  "scripts": {
+    "dev": "webpack-dev-server ./src/index.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "cesium": "^1.109.0",
+    "core-js": "^3.19.0"
+  },
+  "devDependencies": {
+    "webpack": "^5.64.1",
+    "webpack-cli": "^4.9.1",
+    "webpack-config": "workspace:*",
+    "webpack-dev-server": "^4.3.1"
+  }
+}

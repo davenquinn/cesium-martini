@@ -1,11 +1,10 @@
 import "core-js/stable";
-import "regenerator-runtime/runtime";
 import "cesiumSource/Widgets/widgets.css";
 import "./main.css";
-const Cesium: any = require("cesiumSource/Cesium");
+import * as Cesium from "cesiumSource/Cesium";
 // Import @types/cesium to use along with CesiumJS
-import { Viewer, Ion, IonResource, createWorldTerrain } from "cesium";
-import TerrainProvider from "../../dist";
+//import { Viewer, Ion, IonResource, createWorldTerrain } from "cesium";
+import TerrainProvider from "../../..";
 
 // @ts-ignore
 const terrainProvider = new TerrainProvider({
@@ -28,7 +27,7 @@ var opts = {
   //   style: Cesium.IonWorldImageryStyle.AERIAL,
   // }),
   // @ts-ignore
-  skyBox: false as false,
+  skyBox: false,
   baseLayerPicker: false,
   geocoder: false,
   skyAtmosphere: false as false,
@@ -40,7 +39,7 @@ var opts = {
   useBrowserRecommendedResolution: false,
   // We have a bug in the tile bounding box calculation somewhere.
   terrainExaggeration: 1.0,
-  imageryProvider: satellite,
+  baseLayer: new Cesium.ImageryLayer(satellite)
 };
 
 const domID = "cesium-container";
