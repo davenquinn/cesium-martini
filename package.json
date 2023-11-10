@@ -25,7 +25,7 @@
   "dependencies": {
     "@mapbox/martini": "^0.2.0",
     "@types/ndarray": "^1.0.7",
-    "axios": "^0.21.1",
+    "axios": "^1.6.0",
     "cesium": "^1.81.0",
     "get-pixels": "^3.3.2",
     "ndarray": "^1.0.19"
