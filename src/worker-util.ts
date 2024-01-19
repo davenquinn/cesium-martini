@@ -1,9 +1,11 @@
+import ndarray from "ndarray";
+
 // We should save these
 //const canvas = new OffscreenCanvas(256, 256);
 //const ctx = canvas.getContext("2d");
 
 function mapboxTerrainToGrid(
-  png: ndarray<number>,
+  png: ndarray.NdArray<Uint8Array>,
   interval?: number,
   offset?: number
 ) {
@@ -38,6 +40,66 @@ function mapboxTerrainToGrid(
   return terrain;
 }
 
+export interface TileCoordinates {
+  x: number;
+  y: number;
+  z: number;
+}
+
+export type Window = { x0: number; x1: number; y0: number; y1: number };
+
+export function subsetByWindow(
+  array: Float32Array,
+  window: Window,
+  augmented: boolean
+) {
+  const sz = Math.sqrt(array.length);
+  const x0 = window.x0;
+  const x1 = window.x1;
+  const y0 = window.y0;
+  const y1 = window.y1;
+  const aug = augmented ? 1 : 0;
+  const n = Math.floor(x1 - x0) + aug;
+  const m = Math.floor(y1 - y0) + aug;
+  const result = new Float32Array(n * m);
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < n; j++) {
+      result[i * n + j] = array[(i + y0) * sz + j + x0];
+    }
+  }
+  return result;
+}
+
+type RGBAImage = {
+  type: "image";
+  /**
+   * Terrain-RGB interval (default 0.1)
+   */
+  interval?: number;
+  /**
+   * Terrain-RGB offset (default -10000)
+   */
+  offset?: number;
+  array: Uint8ClampedArray;
+};
+
+type Heightfield = {
+  type: "heightfield";
+  array: Float32Array;
+  window?: Window;
+};
+
+type HeightData = RGBAImage | Heightfield;
+
+export interface TerrainWorkerInput {
+  heightData: HeightData;
+  errorLevel: number;
+  tileSize: number;
+  ellipsoidRadius: number;
+  maxVertexDistance: number | null;
+  tileCoord: TileCoordinates;
+}
+
 export interface TerrainWorkerOutput {
   minimumHeight: number;
   maximumHeight: number;
@@ -47,6 +109,7 @@ export interface TerrainWorkerOutput {
   southIndices: number[];
   eastIndices: number[];
   northIndices: number[];
+  quantizedHeights?: Float32Array;
 }
 
 export function testMeshData(): TerrainWorkerOutput {
@@ -135,13 +198,12 @@ export function emptyMesh(n: number) {
   }
 }
 
-export interface QuantizedMeshOptions {
-  errorLevel: number;
-  tileSize: number;
-  ellipsoidRadius: number;
-}
-
-function createQuantizedMeshData(tile, mesh, tileSize): TerrainWorkerOutput {
+function createQuantizedMeshData(
+  tile: any,
+  mesh: any,
+  tileSize: number,
+  terrain: Float32Array | null
+): TerrainWorkerOutput {
   const xvals = [];
   const yvals = [];
   const heightMeters = [];
@@ -180,7 +242,7 @@ function createQuantizedMeshData(tile, mesh, tileSize): TerrainWorkerOutput {
 
   const heights = heightMeters.map((d) => {
     if (heightRange < 1) return 0;
-    return (d - minimumHeight) * (32767.0 / heightRange);
+    return (d - minimumHeight) * (32768.0 / heightRange);
   });
 
   const triangles = new Uint16Array(mesh.triangles);
@@ -201,6 +263,7 @@ function createQuantizedMeshData(tile, mesh, tileSize): TerrainWorkerOutput {
     southIndices,
     eastIndices,
     northIndices,
+    quantizedHeights: terrain,
   };
 }
 

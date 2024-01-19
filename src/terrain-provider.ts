@@ -1,36 +1,25 @@
 import {
-  Cartographic,
   Rectangle,
   Ellipsoid,
   WebMercatorTilingScheme,
   Math as CMath,
   Event as CEvent,
-  BoundingSphere,
-  QuantizedMeshTerrainData,
-  OrientedBoundingBox,
   TerrainProvider,
   Credit,
+  TilingScheme,
 } from "cesium";
 import WorkerFarm from "./worker-farm";
-import { TerrainWorkerInput, decodeTerrain } from "./worker";
-import TilingScheme from "cesium/Source/Core/TilingScheme";
 import { HeightmapResource } from "./heightmap-resource";
 import MapboxTerrainResource, {
   MapboxTerrainResourceOpts,
 } from "./mapbox-resource";
-import { emptyMesh } from "./worker-util";
+import { createEmptyMesh, buildTerrainTile } from "./terrain-data";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
-export interface TileCoordinates {
-  x: number;
-  y: number;
-  z: number;
-}
-
 interface MartiniTerrainOpts {
   resource: HeightmapResource;
-  ellipsoid?: Ellipsoid;
+  tilingScheme?: TilingScheme;
   // workerURL: string;
   detailScalar?: number;
   minimumErrorLevel?: number;
@@ -41,7 +30,7 @@ interface MartiniTerrainOpts {
   fillPoles?: boolean;
 }
 
-class StretchedTilingScheme extends WebMercatorTilingScheme {
+export class StretchedTilingScheme extends WebMercatorTilingScheme {
   tileXYToRectangle(
     x: number,
     y: number,
@@ -50,7 +39,6 @@ class StretchedTilingScheme extends WebMercatorTilingScheme {
   ): Rectangle {
     let result = super.tileXYToRectangle(x, y, level);
     if (y == 0) {
-      //console.log("Top row", res, y, level);
       result.north = Math.PI / 2;
     }
     if (y + 1 == Math.pow(2, level)) {
@@ -69,7 +57,6 @@ export class MartiniTerrainProvider<TerrainProvider> {
   availability = null;
   errorEvent = new CEvent();
   tilingScheme: TilingScheme;
-  ellipsoid: Ellipsoid;
   workerFarm: WorkerFarm | null = null;
   inProgressWorkers: number = 0;
   levelOfDetailScalar: number | null = null;
@@ -95,7 +82,19 @@ export class MartiniTerrainProvider<TerrainProvider> {
     this.maxWorkers = opts.maxWorkers ?? 5;
     this.minZoomLevel = opts.minZoomLevel ?? 3;
     this.fillPoles = opts.fillPoles ?? true;
-    console.log("fillPoles", this.fillPoles);
+    if (opts.tilingScheme == null) {
+      let scheme = WebMercatorTilingScheme;
+      if (this.fillPoles) {
+        scheme = StretchedTilingScheme;
+      }
+      this.tilingScheme = new scheme({
+        numberOfLevelZeroTilesX: 1,
+        numberOfLevelZeroTilesY: 1,
+        ellipsoid: this.ellipsoid,
+      });
+    } else {
+      this.tilingScheme = opts.tilingScheme;
+    }
 
     this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
 
@@ -103,21 +102,12 @@ export class MartiniTerrainProvider<TerrainProvider> {
     this.readyPromise = Promise.resolve(true);
     this.minError = opts.minimumErrorLevel ?? 0.1;
 
-    this.errorEvent.addEventListener(console.log, this);
-    this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84;
+    //this.errorEvent.addEventListener(console.log, this);
+    this.ellipsoid =
+      opts.tilingScheme?.ellipsoid ?? opts.ellipsoid ?? Ellipsoid.WGS84;
     if (this.maxWorkers > 0) {
       this.workerFarm = new WorkerFarm();
     }
-
-    let scheme = WebMercatorTilingScheme;
-    if (this.fillPoles) {
-      scheme = StretchedTilingScheme;
-    }
-    this.tilingScheme = new scheme({
-      numberOfLevelZeroTilesX: 1,
-      numberOfLevelZeroTilesY: 1,
-      ellipsoid: this.ellipsoid,
-    });
 
     this._errorAtMinZoom = this.errorAtZoom(this.minZoomLevel);
   }
@@ -126,8 +116,9 @@ export class MartiniTerrainProvider<TerrainProvider> {
     // Look for tiles both below the zoom level and below the error threshold for the zoom level at the equator...
 
     if (
-      z < this.minZoomLevel ||
-      this.scaledErrorForTile(x, y, z) > this._errorAtMinZoom
+      this.minZoomLevel != 0 &&
+      (z < this.minZoomLevel ||
+        this.scaledErrorForTile(x, y, z) > this._errorAtMinZoom)
     ) {
       // If we are below the minimum zoom level, we return empty heightmaps
       // to avoid unnecessary requests for low-resolution data.
@@ -136,55 +127,42 @@ export class MartiniTerrainProvider<TerrainProvider> {
 
     // Note: we still load a TON of tiles near the poles. We might need to do some overzooming here...
 
-    if (this.inProgressWorkers > this.maxWorkers) return undefined;
-    this.inProgressWorkers += 1;
-    return this.processTile(x, y, z).finally(() => {
-      this.inProgressWorkers -= 1;
+    request = this.resource.getTilePixels({ x, y, z });
+    if (request == null) return undefined;
+    return request.then((imageData: ImageData) => {
+      return this.processTile(imageData, x, y, z);
     });
   }
 
-  async processTile(x: number, y: number, z: number) {
+  async processTile(imageData: ImageData, x: number, y: number, z: number) {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
-    try {
-      const { tileSize, getTilePixels } = this.resource;
-      let px = await getTilePixels({ x, y, z });
-      let pixelData = px.data;
+    const { tileSize } = this.resource;
+    let pixelData = imageData.data;
 
-      const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
-      ///const center = Rectangle.center(tileRect);
+    const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
+    ///const center = Rectangle.center(tileRect);
 
-      const err = this.errorAtZoom(z);
+    const err = this.errorAtZoom(z);
 
-      let maxLength = this.maxVertexDistance(tileRect);
+    let maxVertexDistance = this.maxVertexDistance(tileRect);
 
-      const params: TerrainWorkerInput = {
-        imageData: pixelData,
-        maxLength,
-        x,
-        y,
-        z,
-        errorLevel: err,
-        ellipsoidRadius: this.ellipsoid.maximumRadius,
-        tileSize,
+    return buildTerrainTile({
+      tilingScheme: this.tilingScheme,
+      heightData: {
+        type: "image",
+        array: pixelData,
         interval: this.interval,
         offset: this.offset,
-      };
-
-      let res;
-      if (this.workerFarm != null) {
-        res = await this.workerFarm.scheduleTask(params, [pixelData.buffer]);
-      } else {
-        res = decodeTerrain(params, []);
-      }
-      pixelData = undefined;
-      px = undefined;
-      return this.createQuantizedMeshData(tileRect, err, res);
-    } catch (err) {
-      console.log(err);
-      return this.emptyMesh(x, y, z);
-    }
+      },
+      maxVertexDistance,
+      tileCoord: { x, y, z },
+      errorLevel: err,
+      ellipsoidRadius: this.ellipsoid.maximumRadius,
+      tileSize,
+      overscaleFactor: 0,
+    });
   }
 
   errorAtZoom(zoom: number) {
@@ -206,87 +184,17 @@ export class MartiniTerrainProvider<TerrainProvider> {
 
   emptyMesh(x: number, y: number, z: number) {
     const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
-    const center = Rectangle.center(tileRect);
+    const tileCoord = { x, y, z };
 
-    const latScalar = Math.min(Math.abs(Math.sin(center.latitude)), 0.995);
-    let v = Math.max(
-      Math.ceil((200 / (z + 1)) * Math.pow(1 - latScalar, 0.25)),
-      4
-    );
-    const output = emptyMesh(v);
-    const err = this.errorAtZoom(z);
-    return this.createQuantizedMeshData(tileRect, err, output);
-  }
-
-  createQuantizedMeshData(tileRect, errorLevel, workerOutput) {
-    const {
-      minimumHeight,
-      maximumHeight,
-      quantizedVertices,
-      indices,
-      westIndices,
-      southIndices,
-      eastIndices,
-      northIndices,
-    } = workerOutput;
-
-    const err = errorLevel;
-    const skirtHeight = err * 20;
-
-    const center = Rectangle.center(tileRect);
-
-    // Calculating occlusion height is kind of messy currently, but it definitely works
-    const halfAngle = tileRect.width / 2;
-    const dr = Math.cos(halfAngle); // half tile width since our ref point is at the center
-
-    let occlusionHeight = dr * this.ellipsoid.maximumRadius + maximumHeight;
-    if (halfAngle > Math.PI / 4) {
-      occlusionHeight = (1 + halfAngle) * this.ellipsoid.maximumRadius;
-    }
-
-    const occlusionPoint = new Cartographic(
-      center.longitude,
-      center.latitude,
-      occlusionHeight
-      // Scaling factor of two just to be sure.
-    );
-
-    const horizonOcclusionPoint = this.ellipsoid.transformPositionToScaledSpace(
-      Cartographic.toCartesian(occlusionPoint)
-    );
-
-    let orientedBoundingBox = OrientedBoundingBox.fromRectangle(
+    const ellipsoid = this.tilingScheme.ellipsoid;
+    const errorLevel = this.errorAtZoom(z);
+    return createEmptyMesh({
       tileRect,
-      minimumHeight,
-      maximumHeight,
-      this.tilingScheme.ellipsoid
-    );
-    let boundingSphere =
-      BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox);
-
-    // SE NW NE
-    // NE NW SE
-
-    let result = new QuantizedMeshTerrainData({
-      minimumHeight,
-      maximumHeight,
-      quantizedVertices,
-      indices,
-      boundingSphere,
-      orientedBoundingBox,
-      horizonOcclusionPoint,
-      westIndices,
-      southIndices,
-      eastIndices,
-      northIndices,
-      westSkirtHeight: skirtHeight,
-      southSkirtHeight: skirtHeight,
-      eastSkirtHeight: skirtHeight,
-      northSkirtHeight: skirtHeight,
-      childTileMask: 15,
+      ellipsoid,
+      errorLevel,
+      tileCoord,
+      tileSize: 0,
     });
-
-    return result;
   }
 
   getLevelMaximumGeometricError(level) {
