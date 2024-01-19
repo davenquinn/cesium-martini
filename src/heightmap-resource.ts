@@ -30,6 +30,7 @@ export class DefaultHeightmapResource implements HeightmapResource {
     if (opts.url) {
       this.resource = Resource.createIfNeeded(opts.url);
     }
+    this.skipZoomLevel = () => false;
     if (opts.skipZoomLevels) {
       if (Array.isArray(opts.skipZoomLevels)) {
         this.skipZoomLevel = (z: number) => opts.skipZoomLevels.includes(z);
