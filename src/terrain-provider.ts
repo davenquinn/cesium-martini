@@ -28,6 +28,7 @@ interface MartiniTerrainOpts {
   offset?: number;
   minZoomLevel?: number;
   fillPoles?: boolean;
+  urlTemplate?: string;
 }
 
 export class StretchedTilingScheme extends WebMercatorTilingScheme {
