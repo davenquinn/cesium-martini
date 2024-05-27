@@ -97,7 +97,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
       this.tilingScheme = opts.tilingScheme;
     }
 
-    this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
+    this.levelOfDetailScalar = (opts.detailScalar ?? 2.0) + CMath.EPSILON5;
 
     this.ready = true;
     this.readyPromise = Promise.resolve(true);
