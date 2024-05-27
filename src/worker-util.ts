@@ -216,6 +216,8 @@ function createQuantizedMeshData(
   let maximumHeight = -Infinity;
   const scalar = 32768.0 / tileSize;
 
+  // There appears to be a problem with the x/y indexing when using 512x512 tiles
+  // This may be solved by increasing the minumumErrorLevel in the terrain provider
   for (let ix = 0; ix < mesh.vertices.length / 2; ix++) {
     const vertexIx = ix;
     const px = mesh.vertices[ix * 2];

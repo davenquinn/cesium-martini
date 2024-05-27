@@ -206,9 +206,14 @@ export class MartiniTerrainProvider<TerrainProvider> {
         this.tilingScheme.getNumberOfXTilesAtLevel(0)
       );
 
-    // Scalar to control overzooming
-    // also seems to control zooming for imagery layers
-    const scalar = this.resource.tileSize / 256;
+    /*
+    Scalar to control overzooming
+    - also seems to control zooming for imagery layers
+    - This scalar was causing trouble for non-256 tile sizes,
+      and we've removed it for now. It could be reintroduced
+      if it seems necessary
+    */
+    const scalar = 1; //this.resource.tileSize / 256 ;
 
     return levelZeroMaximumGeometricError / scalar / (1 << level);
   }
