@@ -36,7 +36,7 @@ module.exports = {
       // Place this *before* the `ts-loader`.
       {
         test: /\.worker\.ts$/,
-        loader: "worker-loader",
+        use: [require.resolve("worker-loader")],
       },
       {
         test: /\.ts$/,

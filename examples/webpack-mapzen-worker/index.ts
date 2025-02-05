@@ -1,10 +1,8 @@
 import "core-js/stable";
-import "regenerator-runtime/runtime";
 import "cesiumSource/Widgets/widgets.css";
 import "./main.css";
-const Cesium = require("cesiumSource/Cesium");
+import * as Cesium from "cesiumSource/Cesium";
 // Import @types/cesium to use along with CesiumJS
-import { Viewer, Ion, IonResource, createWorldTerrain } from "cesium";
 import { MartiniTerrainProvider } from "lib/terrain-provider";
 import { DefaultHeightmapResource } from "lib/resources/heightmap-resource";
 import { WorkerFarmTerrainDecoder } from "lib/worker/decoder";
@@ -56,7 +54,7 @@ var opts = {
   useBrowserRecommendedResolution: false,
   // We have a bug in the tile bounding box calculation somewhere.
   terrainExaggeration: 1.0,
-  imageryProvider: satellite,
+  baseLayer: new Cesium.ImageryLayer(satellite)
 };
 
 const domID = "cesium-container";

@@ -3650,6 +3650,19 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"example-webpack-mapzen-worker@workspace:examples/webpack-mapzen-worker":
+  version: 0.0.0-use.local
+  resolution: "example-webpack-mapzen-worker@workspace:examples/webpack-mapzen-worker"
+  dependencies:
+    "@mapbox/martini": "git+https://github.com/davenquinn/martini.git"
+    cesium: ^1.109.0
+    core-js: ^3.19.0
+    ndarray: ^1.0.19
+    webpack-config: "workspace:*"
+    webpack-dev-server: ^4.3.1
+  languageName: unknown
+  linkType: soft
+
 "example-webpack-react@workspace:examples/webpack-react":
   version: 0.0.0-use.local
   resolution: "example-webpack-react@workspace:examples/webpack-react"
@@ -3661,8 +3674,6 @@ __metadata:
     react-dom: ^17.0.2
     resium: ^1.13.1
     typescript: ^5
-    webpack: ^5.64.1
-    webpack-cli: ^4.9.1
     webpack-config: "workspace:*"
     webpack-dev-server: ^4.3.1
   languageName: unknown
@@ -3674,8 +3685,6 @@ __metadata:
   dependencies:
     cesium: ^1.109.0
     core-js: ^3.19.0
-    webpack: ^5.64.1
-    webpack-cli: ^4.9.1
     webpack-config: "workspace:*"
     webpack-dev-server: ^4.3.1
   languageName: unknown
@@ -7355,7 +7364,7 @@ __metadata:
     typescript: ^5
     webpack: ^5.64.1
     webpack-cli: ^4.9.1
-    webpack-dev-server: ^4.3.1
+    worker-loader: ^3.0.8
   languageName: unknown
   linkType: soft
 
@@ -7533,6 +7542,18 @@ __metadata:
   version: 2.0.1
   resolution: "wildcard@npm:2.0.1"
   checksum: e0c60a12a219e4b12065d1199802d81c27b841ed6ad6d9d28240980c73ceec6f856771d575af367cbec2982d9ae7838759168b551776577f155044f5a5ba843c
+  languageName: node
+  linkType: hard
+
+"worker-loader@npm:^3.0.8":
+  version: 3.0.8
+  resolution: "worker-loader@npm:3.0.8"
+  dependencies:
+    loader-utils: ^2.0.0
+    schema-utils: ^3.0.0
+  peerDependencies:
+    webpack: ^4.0.0 || ^5.0.0
+  checksum: 84f4a7eeb2a1d8b9704425837e017c91eedfae67ac89e0b866a2dcf283323c1dcabe0258196278b7d5fd0041392da895c8a0c59ddf3a94f1b2e003df68ddfec3
   languageName: node
   linkType: hard
 
