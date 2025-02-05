@@ -18,6 +18,7 @@ module.exports = {
       // CesiumJS module name,
       cesiumSource,
       cesium: "cesium/Source/Cesium",
+      lib: path.resolve(__dirname, "..", "..", "src"),
     },
     // We need fallbacks for cesium source files
     fallback: {
@@ -32,6 +33,11 @@ module.exports = {
   module: {
     unknownContextCritical: false,
     rules: [
+      // Place this *before* the `ts-loader`.
+      {
+        test: /\.worker\.ts$/,
+        loader: "worker-loader",
+      },
       {
         test: /\.ts$/,
         exclude: /node_modules/,
