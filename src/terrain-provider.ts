@@ -10,11 +10,11 @@ import {
   OrientedBoundingBox,
   TerrainProvider,
   Credit,
+  TilingScheme
 } from "cesium";
 const ndarray = require("ndarray");
 
-import { TerrainWorkerInput } from "./worker/worker-util";
-import TilingScheme from "cesium/Source/Core/TilingScheme";
+import { TerrainWorkerInput, emptyMesh as _emptyMesh } from "./worker/worker-util";
 import { HeightmapResource } from './resources/heightmap-resource';
 import WorkerFarmTerrainDecoder, { TerrainDecoder, DefaultTerrainDecoder } from "./worker/decoder";
 
@@ -195,7 +195,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
       Math.ceil((200 / (z + 1)) * Math.pow(1 - latScalar, 0.25)),
       4
     );
-    const output = emptyMesh(v);
+    const output = _emptyMesh(v);
     const err = this.errorAtZoom(z);
     return this.createQuantizedMeshData(tileRect, err, output);
   }
