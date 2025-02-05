@@ -150,6 +150,7 @@ Pull requests for any and all of these priorities are appreciated!
 - Migrated Vite examples to Vite 5
 - Upgraded `axios` dependency
 - Remove submodule dependency for `@mapbox/martini` in favor of directly importing from [my fork](https://github.com/davenquinn/martini)
+- Upgrade `yarn` to `4.6.0`
 
 ### `[1.3.0]`: September 2023
 
