@@ -12,7 +12,6 @@ import {
   Credit,
   TilingScheme
 } from "cesium";
-const ndarray = require("ndarray");
 
 import { TerrainWorkerInput, emptyMesh as _emptyMesh } from "./worker/worker-util";
 import { HeightmapResource } from './resources/heightmap-resource';
