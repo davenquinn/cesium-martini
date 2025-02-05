@@ -159,7 +159,7 @@ Pull requests for any and all of these priorities are appreciated!
 
 #### Development environment
 
-We reorganized the development environment and examples through a set of interrelated changes, for a more modern overall design.
+We reorganized the development environment and examples for a more modern overall design.
 
 - Switched to `yarn` from `npm` as the default package manager
 - Enabled Yarn Plug'n'Play for faster development
