@@ -1,14 +1,16 @@
 {
-  "name": "example-webpack",
+  "name": "example-webpack-mapzen-worker",
   "private": true,
   "scripts": {
-    "dev": "webpack-dev-server ./src/index.ts"
+    "dev": "webpack-dev-server ./index.ts"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@mapbox/martini": "git+https://github.com/davenquinn/martini.git",
     "cesium": "^1.109.0",
-    "core-js": "^3.19.0"
+    "core-js": "^3.19.0",
+    "ndarray": "^1.0.19"
   },
   "devDependencies": {
     "webpack-config": "workspace:*",

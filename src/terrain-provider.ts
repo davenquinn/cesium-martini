@@ -10,15 +10,12 @@ import {
   OrientedBoundingBox,
   TerrainProvider,
   Credit,
+  TilingScheme
 } from "cesium";
-import WorkerFarm from "./worker-farm";
-import { TerrainWorkerInput, decodeTerrain } from "./worker";
-import TilingScheme from "cesium/Source/Core/TilingScheme";
-import { HeightmapResource } from "./heightmap-resource";
-import MapboxTerrainResource, {
-  MapboxTerrainResourceOpts,
-} from "./mapbox-resource";
-import { emptyMesh } from "./worker-util";
+
+import { TerrainWorkerInput, emptyMesh as _emptyMesh } from "./worker/worker-util";
+import { HeightmapResource } from './resources/heightmap-resource';
+import WorkerFarmTerrainDecoder, { TerrainDecoder, DefaultTerrainDecoder } from "./worker/decoder";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
@@ -28,15 +25,14 @@ export interface TileCoordinates {
   z: number;
 }
 
-interface MartiniTerrainOpts {
+export interface MartiniTerrainOpts {
   resource: HeightmapResource;
+  decoder?: TerrainDecoder;
+
   ellipsoid?: Ellipsoid;
-  // workerURL: string;
   detailScalar?: number;
   minimumErrorLevel?: number;
   maxWorkers?: number;
-  interval?: number;
-  offset?: number;
   minZoomLevel?: number;
   fillPoles?: boolean;
 }
@@ -70,18 +66,14 @@ export class MartiniTerrainProvider<TerrainProvider> {
   errorEvent = new CEvent();
   tilingScheme: TilingScheme;
   ellipsoid: Ellipsoid;
-  workerFarm: WorkerFarm | null = null;
-  inProgressWorkers: number = 0;
   levelOfDetailScalar: number | null = null;
-  maxWorkers: number = 5;
   minError: number = 0.1;
   minZoomLevel: number;
   fillPoles: boolean = true;
   _errorAtMinZoom: number = 1000;
 
   resource: HeightmapResource = null;
-  interval: number;
-  offset: number;
+  decoder: TerrainDecoder = null;
 
   RADIUS_SCALAR = 1.0;
 
@@ -89,13 +81,19 @@ export class MartiniTerrainProvider<TerrainProvider> {
   constructor(opts: MartiniTerrainOpts = {}) {
     //this.martini = new Martini(257);
     this.resource = opts.resource;
+    this.credit = this.resource.credit ?? new Credit("Mapbox");
 
-    this.interval = opts.interval ?? 0.1;
-    this.offset = opts.offset ?? -10000;
-    this.maxWorkers = opts.maxWorkers ?? 5;
+    this.decoder = opts.decoder;
+    if (!this.decoder) {
+      const maxWorkers = opts.maxWorkers ?? 5;
+      if (maxWorkers > 0) {
+        this.decoder = new WorkerFarmTerrainDecoder({ maxWorkers });
+      } else {
+        this.decoder = new DefaultTerrainDecoder();
+      }
+    }
     this.minZoomLevel = opts.minZoomLevel ?? 3;
     this.fillPoles = opts.fillPoles ?? true;
-    console.log("fillPoles", this.fillPoles);
 
     this.levelOfDetailScalar = (opts.detailScalar ?? 4.0) + CMath.EPSILON5;
 
@@ -105,9 +103,6 @@ export class MartiniTerrainProvider<TerrainProvider> {
 
     this.errorEvent.addEventListener(console.log, this);
     this.ellipsoid = opts.ellipsoid ?? Ellipsoid.WGS84;
-    if (this.maxWorkers > 0) {
-      this.workerFarm = new WorkerFarm();
-    }
 
     let scheme = WebMercatorTilingScheme;
     if (this.fillPoles) {
@@ -124,7 +119,6 @@ export class MartiniTerrainProvider<TerrainProvider> {
 
   requestTileGeometry(x, y, z, request) {
     // Look for tiles both below the zoom level and below the error threshold for the zoom level at the equator...
-
     if (
       z < this.minZoomLevel ||
       this.scaledErrorForTile(x, y, z) > this._errorAtMinZoom
@@ -133,17 +127,11 @@ export class MartiniTerrainProvider<TerrainProvider> {
       // to avoid unnecessary requests for low-resolution data.
       return Promise.resolve(this.emptyMesh(x, y, z));
     }
-
     // Note: we still load a TON of tiles near the poles. We might need to do some overzooming here...
-
-    if (this.inProgressWorkers > this.maxWorkers) return undefined;
-    this.inProgressWorkers += 1;
-    return this.processTile(x, y, z).finally(() => {
-      this.inProgressWorkers -= 1;
-    });
+    return this.decoder.requestTileGeometry({ x, y, z }, this.processTile.bind(this));
   }
 
-  async processTile(x: number, y: number, z: number) {
+  async processTile({ x, y, z }: TileCoordinates) {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
@@ -168,16 +156,9 @@ export class MartiniTerrainProvider<TerrainProvider> {
         errorLevel: err,
         ellipsoidRadius: this.ellipsoid.maximumRadius,
         tileSize,
-        interval: this.interval,
-        offset: this.offset,
       };
 
-      let res;
-      if (this.workerFarm != null) {
-        res = await this.workerFarm.scheduleTask(params, [pixelData.buffer]);
-      } else {
-        res = decodeTerrain(params, []);
-      }
+      const res = await this.decoder.decodeTerrain(params, pixelData.buffer);
       pixelData = undefined;
       px = undefined;
       return this.createQuantizedMeshData(tileRect, err, res);
@@ -213,7 +194,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
       Math.ceil((200 / (z + 1)) * Math.pow(1 - latScalar, 0.25)),
       4
     );
-    const output = emptyMesh(v);
+    const output = _emptyMesh(v);
     const err = this.errorAtZoom(z);
     return this.createQuantizedMeshData(tileRect, err, output);
   }
@@ -306,18 +287,5 @@ export class MartiniTerrainProvider<TerrainProvider> {
 
   getTileDataAvailable(x, y, z) {
     return this.resource.getTileDataAvailable({ x, y, z });
-  }
-}
-
-type MapboxTerrainOpts = Omit<MartiniTerrainOpts, "resource"> &
-  MapboxTerrainResourceOpts;
-
-export default class MapboxTerrainProvider extends MartiniTerrainProvider<TerrainProvider> {
-  constructor(opts: MapboxTerrainOpts = {}) {
-    const resource = new MapboxTerrainResource(opts);
-    super({
-      ...opts,
-      resource,
-    });
   }
 }

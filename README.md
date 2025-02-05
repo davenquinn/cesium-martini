@@ -39,7 +39,6 @@ Your mileage with `npm` may vary.
 ### Quick start
 
 1. Clone the repository
-2. Run `git submodule update --init` to fetch the [martini](https://github.com/mapbox/martini) submodule
 2. Install dependencies with `yarn install`
 3. Build the package with `yarn run build`
 
@@ -49,13 +48,16 @@ After cloning this repository, you can build the module (using Rollup) with
 ### Example applications
 
 Several example applications are available in the [`examples/`](examples/) directory and runnable from the root project.
-The main example is built with Vite and others are built with Webpack v5. As well as showing how to use this module, these examples contain configuration for bundling Cesium in each packaging environment.
+The main example is built with Vite and others are built with Webpack v5. As well as showing how to use this module,
+these examples contain configuration for bundling Cesium in each packaging system.
 
 To run an example application, add `MAPBOX_API_TOKEN=<your-mapbox-token>` to a `.env` file.
 in the root of this repository, and then start the appropriate example:
 
 - `yarn run example` (Vite)
+- `yarn run example:mapzen` (Vite + Mapzen)
 - `yarn run example:webpack` (Webpack)
+- `yarn run example:webpack-mapzen` (Webpack + Mapzen)
 - `yarn run example:webpack-react` (Webpack + React)
 
 Contributions in the form of bug reports and pull requests are welcome.
@@ -141,6 +143,14 @@ Pull requests for any and all of these priorities are appreciated!
 
 ## Changelog
 
+### `[1.4.0]`: February 2025
+
+- Merge [**PR #10**](https://github.com/davenquinn/cesium-martini/pull/10) from [*Stuart Attenborrow*](https://github.com/stuarta0) to allow loading of non-Mapbox terrain tiles
+- Created Vite and Webpack examples of using the module with Mapzen Terrarium tiles
+- Migrated Vite examples to Vite 5
+- Upgraded `axios` dependency
+- Remove submodule dependency for `@mapbox/martini` in favor of directly importing from [my fork](https://github.com/davenquinn/martini)
+
 ### `[1.3.0]`: September 2023
 
 - Add compilation to ESModules, which allows the package to be used with modern bundlers like [**Vite**](https://vitejs.dev). *Contributed by [@fc](https://github.com/fc).*
@@ -149,7 +159,7 @@ Pull requests for any and all of these priorities are appreciated!
 
 #### Development environment
 
-We reorganized the development environment and examples through a set of interrelated changes, for a more modern overall design.
+We reorganized the development environment and examples for a more modern overall design.
 
 - Switched to `yarn` from `npm` as the default package manager
 - Enabled Yarn Plug'n'Play for faster development
