@@ -2,6 +2,8 @@
 
 **On-the-fly meshing of raster elevation tiles for the CesiumJS virtual globe**
 
+[![npm version](https://badge.fury.io/js/@macrostrat%2Fcesium-martini.svg)](https://badge.fury.io/js/@macrostrat%2Fcesium-martini)
+
 ![Himalayas](/img/himalayas.jpg)
 
 This package contains a Cesium
