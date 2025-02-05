@@ -14,9 +14,10 @@
     "build": "rollup -c",
     "watch": "rollup -c -w",
     "example": "yarn workspace example-vite run dev",
+    "example:mapzen": "yarn workspace example-vite-mapzen-worker run dev",
     "example:webpack-react": "yarn workspace example-webpack-react run dev",
     "example:webpack": "yarn workspace example-webpack run dev",
-    "example:mapzen": "yarn workspace example-webpack-mapzen-worker run dev",
+    "example:webpack-mapzen": "yarn workspace example-webpack-mapzen-worker run dev",
     "dev": "yarn run watch & yarn run example",
     "test": "echo \"Error: no test specified\" && exit 1",
     "prepublishOnly": "npm run build"
