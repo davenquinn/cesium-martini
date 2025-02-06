@@ -9,7 +9,6 @@ import {
   Credit,
   TilingScheme,
 } from "cesium";
-import { decodeTerrain } from "./worker";
 import {
   TerrainWorkerInput,
   TerrainWorkerOutput,
@@ -18,7 +17,7 @@ import {
   TileCoordinates,
   subsetByWindow,
 } from "./worker/worker-util";
-import Decoder, { TerrainDecoder } from "./worker/decoder";
+import { TerrainDecoder } from "./worker/decoder";
 
 interface QuantizedMeshTerrainOptions {
   quantizedVertices: Uint16Array;
@@ -43,14 +42,18 @@ interface QuantizedMeshTerrainOptions {
   credits?: Credit[];
 }
 
-export function createTerrainData(
-  tileRect: Rectangle,
-  ellipsoid: Ellipsoid,
-  errorLevel: number,
-  overscaleFactor: number,
-  workerOutput: TerrainWorkerOutput,
-  tileSize: number,
-  maxVertexDistance: number | null
+export interface TerrainMeshMeta {
+  errorLevel: number;
+  tileSize: number;
+  maxVertexDistance: number | null;
+  tileRect: Rectangle;
+  ellipsoid: Ellipsoid;
+  overscaleFactor: number;
+}
+
+export function createTerrainMesh(
+  data: TerrainWorkerOutput,
+  meta: TerrainMeshMeta
 ) {
   const {
     minimumHeight,
@@ -62,7 +65,16 @@ export function createTerrainData(
     eastIndices,
     northIndices,
     quantizedHeights,
-  } = workerOutput;
+  } = data;
+
+  const {
+    errorLevel,
+    tileSize,
+    maxVertexDistance,
+    tileRect,
+    ellipsoid,
+    overscaleFactor
+  } = meta;
 
   const err = errorLevel;
   const skirtHeight = err * 20;
@@ -129,12 +141,13 @@ interface EmptyMeshOptions {
   ellipsoid: Ellipsoid;
   errorLevel: number;
   tileSize: number;
+  maxVertexDistance?: number;
 }
 
 export function createEmptyMesh(
   opts: EmptyMeshOptions
 ): QuantizedMeshTerrainData {
-  const { tileRect, tileCoord, errorLevel, ellipsoid } = opts;
+  const { tileRect, tileCoord, errorLevel, ellipsoid, maxVertexDistance } = opts;
   const center = Rectangle.center(tileRect);
   const { z } = tileCoord;
 
@@ -145,49 +158,14 @@ export function createEmptyMesh(
   );
   const output = emptyMesh(v);
   // We use zero for some undefined values
-  return createTerrainData(tileRect, ellipsoid, errorLevel, 0, output, 0, 0);
-}
-
-export interface TerrainBuilderOpts extends TerrainWorkerInput {
-  tilingScheme: TilingScheme;
-  overscaleFactor: number;
-}
-
-export async function buildTerrainTile(decoder: TerrainDecoder, opts: TerrainBuilderOpts) {
-  const { tilingScheme, overscaleFactor, ...workerOpts } = opts;
-
-  const { x, y, z } = workerOpts;
-  const tileRect = tilingScheme.tileXYToRectangle(x, y, z);
-  const ellipsoid = tilingScheme.ellipsoid;
-
-  const { errorLevel, maxLength: maxVertexDistance, tileSize } = workerOpts;
-
-  try {
-    const res = await decoder.decodeTerrain(workerOpts, workerOpts.imageData.buffer);
-    // if (true) {
-    //   res.quantizedHeights = undefined;
-    // }
-
-    return createTerrainData(
-      tileRect,
-      ellipsoid,
-      errorLevel,
-      overscaleFactor,
-      res,
-      tileSize,
-      // Maximum vertex distance
-      maxVertexDistance
-    );
-  } catch (err) {
-    console.log(err);
-    return createEmptyMesh({
-      tileRect,
-      errorLevel,
-      ellipsoid,
-      tileCoord: { x, y, z },
-      tileSize: 0,
-    });
-  }
+  return createTerrainMesh(output, {
+    tileRect,
+    ellipsoid,
+    errorLevel,
+    overscaleFactor: 0,
+    maxVertexDistance,
+    tileSize: output.tileSize
+  });
 }
 
 interface RasterParams {
@@ -244,7 +222,7 @@ export class RasterTerrainData
 
     const window = { x0, x1, y0, y1 };
 
-    const res = buildTerrainTile({
+    const res = buildOverscaledTerrainTile({
       tilingScheme,
       heightData: {
         type: "heightfield",
@@ -298,3 +276,46 @@ export class RasterTerrainData
     );
   }
 }
+
+
+interface OverscaledTerrainOpts extends Omit<TerrainWorkerInput, "imageData"> {
+  tilingScheme: TilingScheme;
+  overscaleFactor: number;
+  height
+}
+
+async function buildOverscaledTerrainTile(opts: OverscaledTerrainOpts) {
+  const { tilingScheme, overscaleFactor, ...workerOpts } = opts;
+
+  const { x, y, z } = workerOpts;
+  const tileRect = tilingScheme.tileXYToRectangle(x, y, z);
+  const ellipsoid = tilingScheme.ellipsoid;
+
+  const { errorLevel, maxLength: maxVertexDistance, tileSize } = workerOpts;
+
+  try {
+    const res = await decoder.decodeTerrain(workerOpts, workerOpts.imageData.buffer);
+    // if (true) {
+    //   res.quantizedHeights = undefined;
+    // }
+
+    return createTerrainMesh(res, {
+      tileRect,
+      ellipsoid,
+      errorLevel,
+      overscaleFactor,
+      tileSize,
+      // Maximum vertex distance
+      maxVertexDistance
+    });
+  } catch (err) {
+    return createEmptyMesh({
+      tileRect,
+      errorLevel,
+      ellipsoid,
+      tileCoord: { x, y, z },
+      tileSize: 0,
+    });
+  }
+}
+

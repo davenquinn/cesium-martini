@@ -1,5 +1,3 @@
-import TerrainWorker from "web-worker:./worker";
-
 const resolves = {};
 const rejects = {};
 let globalMsgId = 0; // Activate calculation in the worker, returning a promise

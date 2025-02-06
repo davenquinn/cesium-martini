@@ -16,7 +16,13 @@ import {
 import { TerrainWorkerInput, emptyMesh as _emptyMesh } from "./worker/worker-util";
 import { HeightmapResource } from './resources/heightmap-resource';
 import WorkerFarmTerrainDecoder, { TerrainDecoder, DefaultTerrainDecoder } from "./worker/decoder";
-import { buildTerrainTile, TerrainBuilderOpts } from "./terrain-data";
+import {
+  buildTerrainTile,
+  createEmptyMesh,
+  createTerrainMesh,
+  TerrainBuilderOpts,
+  TerrainMeshMeta
+} from "./terrain-data";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
@@ -152,37 +158,63 @@ export class MartiniTerrainProvider<TerrainProvider> {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
+    const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
+    const errorLevel = this.errorAtZoom(z);
+    const maxVertexDistance = this.maxVertexDistance(tileRect);
+
     try {
       const { tileSize, getTilePixels } = this.resource;
-      const _getTilePixels = getTilePixels.bind(this.resource);
-      let px = await _getTilePixels({ x, y, z });
-      let pixelData = px.data;
+      const r1 = getTilePixels.bind(this.resource, { x, y, z });
 
-      const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
+      if (r1 == null) {
+        return;
+      }
+      const px = await r1()
+
+      let pixelData = px.data;
+      if (pixelData == null) {
+        return
+      }
+
       ///const center = Rectangle.center(tileRect);
 
-      const err = this.errorAtZoom(z);
-
-      let maxVertexDistance = this.maxVertexDistance(tileRect);
-
-
-      const params: TerrainBuilderOpts = {
+      const params: TerrainWorkerInput = {
         imageData: pixelData,
         maxVertexDistance,
         x,
         y,
         z,
-        errorLevel: err,
-        ellipsoidRadius: this.ellipsoid.maximumRadius,
+        errorLevel,
+        ellipsoidRadius: this.tilingScheme.ellipsoid.maximumRadius,
         tileSize,
-        tilingScheme: this.tilingScheme,
-        overscaleFactor: 0,
       };
 
-      return buildTerrainTile(this.decoder, params);
+      const res = await this.decoder.decodeTerrain(params, pixelData.buffer);
+
+      const meta: TerrainMeshMeta = {
+        ellipsoid: this.tilingScheme.ellipsoid,
+        errorLevel,
+        overscaleFactor: 0,
+        maxVertexDistance,
+        tileRect
+      }
+
+      /** This builds a final terrain mesh object that can optionally
+       * be upscaled to a higher resolution.
+       */
+      return createTerrainMesh(
+        res,
+        meta
+      );
     } catch (err) {
       console.log(err);
-      return this.emptyMesh(x, y, z);
+      return createEmptyMesh({
+        tileRect,
+        errorLevel,
+        ellipsoid: this.tilingScheme.ellipsoid,
+        tileCoord: { x, y, z },
+        tileSize: 0,
+      });
     }
   }
 
