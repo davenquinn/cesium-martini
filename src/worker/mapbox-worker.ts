@@ -1,10 +1,10 @@
 import {
-  mapboxTerrainToGrid,
+  rgbTerrainToGrid,
   createQuantizedMeshData,
   TerrainWorkerInput,
 } from "./worker-util";
 import ndarray from "ndarray";
-import Martini from "../martini/index.js";
+import Martini from "@mapbox/martini";
 // https://github.com/CesiumGS/cesium/blob/1.76/Source/WorkersES6/createVerticesFromQuantizedTerrainMesh.js
 
 let martiniCache = {};
@@ -29,7 +29,7 @@ function decodeTerrain(
       [4, 4 * tileSize, 1],
       0
     );
-    terrain = mapboxTerrainToGrid(pixels, interval, offset);
+    terrain = rgbTerrainToGrid(pixels, interval, offset);
   } else {
     terrain = heightData.array;
   }
@@ -57,8 +57,6 @@ function decodeTerrain(
   }
   return res;
 }
-
-export { decodeTerrain };
 
 self.onmessage = function (msg) {
   const { id, payload } = msg.data;

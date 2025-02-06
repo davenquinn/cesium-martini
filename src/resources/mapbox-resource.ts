@@ -1,4 +1,4 @@
-import { Resource } from "cesium";
+import { Credit, Resource } from "cesium";
 import {
   DefaultHeightmapResource,
   DefaultHeightmapResourceOpts,
@@ -19,6 +19,7 @@ export type MapboxTerrainResourceOpts = {
 
 export class MapboxTerrainResource extends DefaultHeightmapResource {
   resource: Resource = null;
+  credit = new Credit("Mapbox");
 
   constructor(opts: MapboxTerrainResourceOpts = {}) {
     super(opts);

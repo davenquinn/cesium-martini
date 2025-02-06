@@ -1,22 +1,31 @@
-import ndarray from "ndarray";
-
 // We should save these
 //const canvas = new OffscreenCanvas(256, 256);
 //const ctx = canvas.getContext("2d");
+import ndarray from "ndarray";
 
-function mapboxTerrainToGrid(
-  png: ndarray.NdArray<Uint8Array>,
-  interval?: number,
-  offset?: number
-) {
+export interface TerrainWorkerInput extends QuantizedMeshOptions {
+  imageData: Uint8ClampedArray;
+  maxLength: number | null;
+  x: number;
+  y: number;
+  z: number;
+}
+
+export type DecodeRgbFunction = (r: number, g: number, b: number, a: number) => number;
+
+/** Mapbox Terrain-RGB default decode function
+*  (r * 256 * 256) / 10 + (g * 256) / 10 + b / 10 - 10000
+*/
+const defaultMapboxDecodeRgb: DecodeRgbFunction = (r, g, b, a) => (r * 6553.6) + (g * 25.6) + b * 0.1 - 10000;
+
+function rgbTerrainToGrid(png: ndarray<number>, decodeRgb?: DecodeRgbFunction) {
   // maybe we should do this on the GPU using REGL?
   // but that would require GPU -> CPU -> GPU
   const gridSize = png.shape[0] + 1;
   const terrain = new Float32Array(gridSize * gridSize);
   const tileSize = png.shape[0];
 
-  interval = interval ?? 0.1;
-  offset = offset ?? -10000;
+  const decode = decodeRgb ?? defaultMapboxDecodeRgb;
 
   // decode terrain values
   for (let y = 0; y < tileSize; y++) {
@@ -25,8 +34,8 @@ function mapboxTerrainToGrid(
       const r = png.get(x, yc, 0);
       const g = png.get(x, yc, 1);
       const b = png.get(x, yc, 2);
-      terrain[y * gridSize + x] =
-        r * 256 * 256 * interval + g * 256.0 * interval + b * interval + offset;
+      const a = png.get(x, yc, 3);
+      terrain[y * gridSize + x] = decode(r, g, b, a);
     }
   }
   // backfill right and bottom borders
@@ -38,12 +47,6 @@ function mapboxTerrainToGrid(
     terrain[gridSize * y + gridSize - 1] = terrain[gridSize * y + gridSize - 2];
   }
   return terrain;
-}
-
-export interface TileCoordinates {
-  x: number;
-  y: number;
-  z: number;
 }
 
 export type Window = { x0: number; x1: number; y0: number; y1: number };
@@ -70,49 +73,7 @@ export function subsetByWindow(
   return result;
 }
 
-type RGBAImage = {
-  type: "image";
-  /**
-   * Terrain-RGB interval (default 0.1)
-   */
-  interval?: number;
-  /**
-   * Terrain-RGB offset (default -10000)
-   */
-  offset?: number;
-  array: Uint8ClampedArray;
-};
-
-type Heightfield = {
-  type: "heightfield";
-  array: Float32Array;
-  window?: Window;
-};
-
-type HeightData = RGBAImage | Heightfield;
-
-export interface TerrainWorkerInput {
-  heightData: HeightData;
-  errorLevel: number;
-  tileSize: number;
-  ellipsoidRadius: number;
-  maxVertexDistance: number | null;
-  tileCoord: TileCoordinates;
-}
-
-export interface TerrainWorkerOutput {
-  minimumHeight: number;
-  maximumHeight: number;
-  quantizedVertices: Uint16Array;
-  indices: Uint16Array;
-  westIndices: number[];
-  southIndices: number[];
-  eastIndices: number[];
-  northIndices: number[];
-  quantizedHeights?: Float32Array;
-}
-
-export function testMeshData(): TerrainWorkerOutput {
+export function testMeshData(): QuantizedMeshResult {
   return {
     minimumHeight: -100,
     maximumHeight: 2101,
@@ -133,7 +94,7 @@ export function testMeshData(): TerrainWorkerOutput {
   };
 }
 
-function _emptyMesh(n: number): TerrainWorkerOutput {
+function _emptyMesh(n: number): QuantizedMeshResult {
   n = Math.max(n, 2);
   const nTriangles = Math.pow(n - 1, 2) * 2;
   const nVertices = Math.pow(n, 2);
@@ -198,12 +159,30 @@ export function emptyMesh(n: number) {
   }
 }
 
+export interface QuantizedMeshOptions {
+  errorLevel: number;
+  tileSize: number;
+  ellipsoidRadius: number;
+}
+
+export interface QuantizedMeshResult {
+  minimumHeight: number;
+  maximumHeight: number;
+  quantizedVertices: Uint16Array;
+  indices: Uint16Array;
+  westIndices: number[];
+  southIndices: number[];
+  eastIndices: number[];
+  northIndices: number[];
+  quantizedHeights?: Float32Array
+}
+
 function createQuantizedMeshData(
   tile: any,
   mesh: any,
   tileSize: number,
   terrain: Float32Array | null
-): TerrainWorkerOutput {
+): QuantizedMeshResult {
   const xvals = [];
   const yvals = [];
   const heightMeters = [];
@@ -269,4 +248,4 @@ function createQuantizedMeshData(
   };
 }
 
-export { mapboxTerrainToGrid, createQuantizedMeshData };
+export { rgbTerrainToGrid, createQuantizedMeshData };

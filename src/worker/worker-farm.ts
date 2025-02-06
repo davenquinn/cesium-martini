@@ -1,3 +1,5 @@
+import TerrainWorker from "web-worker:./worker";
+
 const resolves = {};
 const rejects = {};
 let globalMsgId = 0; // Activate calculation in the worker, returning a promise
@@ -46,10 +48,8 @@ class WorkerFarm {
   maxWorkers: number = 5;
   processingQueue: Function[] = [];
 
-  constructor() {
-    this.worker = new Worker(new URL("./worker.ts", import.meta.url), {
-      type: "module",
-    });
+  constructor(opts) {
+    this.worker = opts.worker;
     this.worker.onmessage = handleMessage;
   }
 
@@ -80,13 +80,4 @@ class WorkerFarm {
   }
 }
 
-let workerFarm = null;
-function getWorkerFarm() {
-  if (!workerFarm) {
-    workerFarm = new WorkerFarm();
-  }
-  return workerFarm;
-}
-
-export { getWorkerFarm };
 export default WorkerFarm;

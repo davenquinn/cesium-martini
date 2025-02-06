@@ -16,6 +16,11 @@ const config: UserConfig = {
       NODE_DEBUG: false,
     },
   },
+  resolve: {
+    alias: {
+      lib: path.resolve(__dirname, "..", "..", "src")
+    },
+  },
   envPrefix: "MAPBOX_",
   envDir: path.join(__dirname, "..", ".."),
   // Not sure what the difference between cesiumBuildPath and cesiumBuildRootPath is
