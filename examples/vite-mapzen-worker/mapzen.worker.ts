@@ -1,7 +1,7 @@
 import {
   rgbTerrainToGrid,
   createQuantizedMeshData,
-} from "lib/worker/worker-util";
+} from "../../src/worker/worker-util";
 import ndarray from "ndarray";
 import Martini from "@mapbox/martini";
 
@@ -30,7 +30,7 @@ function decodeTerrain(parameters) {
 
   // get a mesh (vertices and triangles indices) for a 10m error
   const mesh = tile.getMesh(errorLevel, parameters.maxLength);
-  return createQuantizedMeshData(tile, mesh, tileSize);
+  return createQuantizedMeshData(tile, mesh, tileSize, terrain);
 }
 
 ctx.addEventListener("message", (msg) => {

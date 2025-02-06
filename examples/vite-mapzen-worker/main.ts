@@ -2,9 +2,9 @@ import "./main.css";
 import "cesium/Source/Widgets/widgets.css";
 import * as Cesium from "cesium"
 // Import @types/cesium to use along with CesiumJS
-import { MartiniTerrainProvider } from "lib/terrain-provider";
-import { DefaultHeightmapResource } from "lib/resources/heightmap-resource";
-import { WorkerFarmTerrainDecoder } from "lib/worker/decoder";
+import { MartiniTerrainProvider } from "../..";
+import { DefaultHeightmapResource } from "../../src/resources/heightmap-resource";
+import { WorkerFarmTerrainDecoder } from "../../src/worker/decoder";
 
 const terrariumWorker = new Worker(new URL('./mapzen.worker', import.meta.url), {type: 'module'});
 

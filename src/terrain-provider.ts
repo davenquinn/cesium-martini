@@ -1,5 +1,7 @@
 import {
-  Cartographic
+  Cartographic,
+  OrientedBoundingBox,
+  BoundingSphere,
   Rectangle,
   Ellipsoid,
   WebMercatorTilingScheme,
@@ -8,11 +10,13 @@ import {
   TerrainProvider,
   Credit,
   TilingScheme,
+  QuantizedMeshTerrainData
 } from "cesium";
 
 import { TerrainWorkerInput, emptyMesh as _emptyMesh } from "./worker/worker-util";
 import { HeightmapResource } from './resources/heightmap-resource';
 import WorkerFarmTerrainDecoder, { TerrainDecoder, DefaultTerrainDecoder } from "./worker/decoder";
+import { buildTerrainTile, TerrainBuilderOpts } from "./terrain-data";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
 
@@ -139,17 +143,20 @@ export class MartiniTerrainProvider<TerrainProvider> {
       // to avoid unnecessary requests for low-resolution data.
       return Promise.resolve(this.emptyMesh(x, y, z));
     }
+
     // Note: we still load a TON of tiles near the poles. We might need to do some overzooming here...
     return this.decoder.requestTileGeometry({ x, y, z }, this.processTile.bind(this));
   }
 
-  async processTile(imageData: ImageData, { x, y, z}: TileCoordinates) {
+  async processTile({ x, y, z}: TileCoordinates) {
     // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
     try {
-      const { tileSize } = this.resource;
-      let pixelData = imageData.data;
+      const { tileSize, getTilePixels } = this.resource;
+      const _getTilePixels = getTilePixels.bind(this.resource);
+      let px = await _getTilePixels({ x, y, z });
+      let pixelData = px.data;
 
       const tileRect = this.tilingScheme.tileXYToRectangle(x, y, z);
       ///const center = Rectangle.center(tileRect);
@@ -158,21 +165,21 @@ export class MartiniTerrainProvider<TerrainProvider> {
 
       let maxVertexDistance = this.maxVertexDistance(tileRect);
 
-      const params: TerrainWorkerInput = {
+
+      const params: TerrainBuilderOpts = {
         imageData: pixelData,
-        maxLength,
+        maxVertexDistance,
         x,
         y,
         z,
         errorLevel: err,
         ellipsoidRadius: this.ellipsoid.maximumRadius,
         tileSize,
+        tilingScheme: this.tilingScheme,
+        overscaleFactor: 0,
       };
 
-      const res = await this.decoder.decodeTerrain(params, pixelData.buffer);
-      pixelData = undefined;
-      px = undefined;
-      return this.createQuantizedMeshData(tileRect, err, res);
+      return buildTerrainTile(this.decoder, params);
     } catch (err) {
       console.log(err);
       return this.emptyMesh(x, y, z);
@@ -259,6 +266,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
     // SE NW NE
     // NE NW SE
 
+    /** TODO: we need to create raster terrain data. */
     let result = new QuantizedMeshTerrainData({
       minimumHeight,
       maximumHeight,

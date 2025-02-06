@@ -9,7 +9,6 @@ import {
   Credit,
   TilingScheme,
 } from "cesium";
-import { getWorkerFarm } from "./worker-farm";
 import { decodeTerrain } from "./worker";
 import {
   TerrainWorkerInput,
@@ -18,7 +17,8 @@ import {
   Window,
   TileCoordinates,
   subsetByWindow,
-} from "./worker-util";
+} from "./worker/worker-util";
+import Decoder, { TerrainDecoder } from "./worker/decoder";
 
 interface QuantizedMeshTerrainOptions {
   quantizedVertices: Uint16Array;
@@ -148,52 +148,43 @@ export function createEmptyMesh(
   return createTerrainData(tileRect, ellipsoid, errorLevel, 0, output, 0, 0);
 }
 
-interface TerrainBuilderOpts extends TerrainWorkerInput {
+export interface TerrainBuilderOpts extends TerrainWorkerInput {
   tilingScheme: TilingScheme;
   overscaleFactor: number;
 }
 
-export async function buildTerrainTile(opts: TerrainBuilderOpts) {
+export async function buildTerrainTile(decoder: TerrainDecoder, opts: TerrainBuilderOpts) {
   const { tilingScheme, overscaleFactor, ...workerOpts } = opts;
 
-  const { x, y, z } = workerOpts.tileCoord;
+  const { x, y, z } = workerOpts;
   const tileRect = tilingScheme.tileXYToRectangle(x, y, z);
   const ellipsoid = tilingScheme.ellipsoid;
 
-  const { errorLevel, tileCoord, maxVertexDistance, tileSize } = workerOpts;
-  const workerFarm = getWorkerFarm();
+  const { errorLevel, maxLength: maxVertexDistance, tileSize } = workerOpts;
 
   try {
-    let res;
-    if (workerFarm != null) {
-      res = await workerFarm.scheduleTask(workerOpts, [
-        workerOpts.heightData.array.buffer,
-      ]);
-    } else {
-      res = decodeTerrain(workerOpts, []);
-    }
-
+    const res = await decoder.decodeTerrain(workerOpts, workerOpts.imageData.buffer);
     // if (true) {
     //   res.quantizedHeights = undefined;
     // }
 
-    const res1 = createTerrainData(
+    return createTerrainData(
       tileRect,
       ellipsoid,
       errorLevel,
       overscaleFactor,
       res,
       tileSize,
+      // Maximum vertex distance
       maxVertexDistance
     );
-    return res1;
   } catch (err) {
     console.log(err);
     return createEmptyMesh({
       tileRect,
       errorLevel,
       ellipsoid,
-      tileCoord,
+      tileCoord: { x, y, z },
       tileSize: 0,
     });
   }

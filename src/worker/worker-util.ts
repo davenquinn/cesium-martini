@@ -5,7 +5,7 @@ import ndarray from "ndarray";
 
 export interface TerrainWorkerInput extends QuantizedMeshOptions {
   imageData: Uint8ClampedArray;
-  maxLength: number | null;
+  maxVertexDistance: number | null;
   x: number;
   y: number;
   z: number;
@@ -177,12 +177,19 @@ export interface QuantizedMeshResult {
   quantizedHeights?: Float32Array
 }
 
+/** Terrain workers should return a quantized mesh */
+export type TerrainWorkerOutput = QuantizedMeshResult;
+
 function createQuantizedMeshData(
   tile: any,
   mesh: any,
   tileSize: number,
   terrain: Float32Array | null
 ): QuantizedMeshResult {
+  /** Terrain is passed through so we can keep track of it
+   * for overscaled tiles
+   */
+
   const xvals = [];
   const yvals = [];
   const heightMeters = [];

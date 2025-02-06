@@ -14,11 +14,19 @@ function decodeTerrain(
   transferableObjects?: Transferable[]
 ) {
   const {
-    heightData,
+    imageData,
     tileSize = 256,
     errorLevel,
     maxVertexDistance,
   } = parameters;
+
+  // Height data can be either an array of numbers (for pre-existing terrain data)
+  // or an image data array (for decoding from an image)
+
+  const heightData = {
+    type: "image",
+    array: imageData,
+  }
 
   let terrain: Float32Array;
   if (heightData.type === "image") {
