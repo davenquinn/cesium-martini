@@ -196,7 +196,8 @@ export class MartiniTerrainProvider<TerrainProvider> {
         errorLevel,
         overscaleFactor: 0,
         maxVertexDistance,
-        tileRect
+        tileRect,
+        tileSize
       }
 
       /** This builds a final terrain mesh object that can optionally

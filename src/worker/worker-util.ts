@@ -2,6 +2,7 @@
 //const canvas = new OffscreenCanvas(256, 256);
 //const ctx = canvas.getContext("2d");
 import ndarray from "ndarray";
+import { TilingScheme } from "cesium";
 
 export interface TerrainWorkerInput extends QuantizedMeshOptions {
   imageData: Uint8ClampedArray;
@@ -10,6 +11,14 @@ export interface TerrainWorkerInput extends QuantizedMeshOptions {
   y: number;
   z: number;
 }
+
+
+export interface TerrainUpscaleInput extends Omit<TerrainWorkerInput, "imageData"> {
+  overscaleFactor: number;
+  heightData: Float32Array
+}
+
+
 
 export type DecodeRgbFunction = (r: number, g: number, b: number, a: number) => number;
 

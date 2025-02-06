@@ -15,9 +15,8 @@ import {
   emptyMesh,
   Window,
   TileCoordinates,
-  subsetByWindow,
+  subsetByWindow, TerrainUpscaleInput, QuantizedMeshResult
 } from "./worker/worker-util";
-import { TerrainDecoder } from "./worker/decoder";
 
 interface QuantizedMeshTerrainOptions {
   quantizedVertices: Uint16Array;
@@ -201,6 +200,8 @@ export class RasterTerrainData
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
 
+    console.log("Upsampling terrain data")
+
     const dz = z - thisLevel;
     const scalar = Math.pow(2, dz);
 
@@ -238,7 +239,7 @@ export class RasterTerrainData
     });
     this.upsampleCount++;
     if (this.upsampleCount == 4) {
-      // We've upsampled all tiles and don't need to keep terrain data around anymore.
+      // We've upsampled all child tiles and don't need to keep terrain data around anymore.
       this.quantizedHeights = undefined;
     }
 
@@ -277,27 +278,21 @@ export class RasterTerrainData
   }
 }
 
-
-interface OverscaledTerrainOpts extends Omit<TerrainWorkerInput, "imageData"> {
+type OverscaleTerrainOptions = TerrainUpscaleInput & {
   tilingScheme: TilingScheme;
-  overscaleFactor: number;
-  height
 }
 
-async function buildOverscaledTerrainTile(opts: OverscaledTerrainOpts) {
+async function buildOverscaledTerrainTile(opts: OverscaleTerrainOptions) {
   const { tilingScheme, overscaleFactor, ...workerOpts } = opts;
 
   const { x, y, z } = workerOpts;
   const tileRect = tilingScheme.tileXYToRectangle(x, y, z);
   const ellipsoid = tilingScheme.ellipsoid;
 
-  const { errorLevel, maxLength: maxVertexDistance, tileSize } = workerOpts;
+  const { errorLevel, maxVertexDistance, tileSize } = workerOpts;
 
   try {
-    const res = await decoder.decodeTerrain(workerOpts, workerOpts.imageData.buffer);
-    // if (true) {
-    //   res.quantizedHeights = undefined;
-    // }
+    const res = await upsamplerFarm.scheduleTask(workerOpts, [workerOpts.heightData.buffer]) as QuantizedMeshResult;
 
     return createTerrainMesh(res, {
       tileRect,
@@ -319,3 +314,8 @@ async function buildOverscaledTerrainTile(opts: OverscaledTerrainOpts) {
   }
 }
 
+
+import UpsamplerWorker from "web-worker:./worker/upsampler-worker";
+import WorkerFarm from "./worker/worker-farm";
+
+const upsamplerFarm = new WorkerFarm({ worker: new UpsamplerWorker(), maxWorkers: 5 });
