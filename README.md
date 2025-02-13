@@ -150,6 +150,10 @@ The configuration also takes a single number and array.
 
 ## Changelog
 
+### `[1.5.1]`: February 2025
+
+- Remove `.idea` files from bundle
+
 ### `[1.5.0]`: February 2025
 
 - Allow overzooming of tiles when zoom levels are skipped

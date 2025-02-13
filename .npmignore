@@ -3,3 +3,6 @@ img
 examples
 src
 .env
+.idea
+.yarn
+webpack.config.js
