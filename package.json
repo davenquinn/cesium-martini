@@ -1,6 +1,6 @@
 {
   "name": "@macrostrat/cesium-martini",
-  "version": "1.4.0",
+  "version": "1.5.0-dev1",
   "description": "",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
