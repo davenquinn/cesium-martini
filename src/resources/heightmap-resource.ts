@@ -97,7 +97,7 @@ export class DefaultHeightmapResource implements HeightmapResource {
     });
     if (request == null) return undefined;
     return request.then((img: HTMLImageElement | ImageBitmap) =>
-      this.getPixels(img)
+      this.getPixels(img),
     );
   }
 

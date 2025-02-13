@@ -2,7 +2,11 @@ const resolves = {};
 const rejects = {};
 let globalMsgId = 0; // Activate calculation in the worker, returning a promise
 
-async function sendMessage(worker, payload, transferableObjects) {
+async function sendMessage(
+  worker: Worker,
+  payload: any,
+  transferableObjects: Transferable[],
+) {
   const msgId = globalMsgId++;
   const msg = {
     id: msgId,

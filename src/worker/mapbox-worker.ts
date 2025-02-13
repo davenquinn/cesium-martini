@@ -11,7 +11,7 @@ let martiniCache = {};
 
 function decodeTerrain(
   parameters: TerrainWorkerInput,
-  transferableObjects?: Transferable[]
+  transferableObjects?: Transferable[],
 ) {
   const {
     imageData,
@@ -26,7 +26,7 @@ function decodeTerrain(
   const heightData = {
     type: "image",
     array: imageData,
-  }
+  };
 
   let terrain: Float32Array;
   if (heightData.type === "image") {
@@ -35,7 +35,7 @@ function decodeTerrain(
       new Uint8Array(array),
       [tileSize, tileSize, 4],
       [4, 4 * tileSize, 1],
-      0
+      0,
     );
     terrain = rgbTerrainToGrid(pixels, interval, offset);
   } else {
@@ -56,7 +56,7 @@ function decodeTerrain(
     mesh,
     tileSize,
     // Only include vertex data if anticipate upscaling tile
-    canUpscaleTile ? terrain : null
+    canUpscaleTile ? terrain : null,
   );
   transferableObjects.push(res.indices.buffer);
   transferableObjects.push(res.quantizedVertices.buffer);

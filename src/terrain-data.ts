@@ -15,7 +15,9 @@ import {
   emptyMesh,
   Window,
   TileCoordinates,
-  subsetByWindow, TerrainUpscaleInput, QuantizedMeshResult
+  subsetByWindow,
+  TerrainUpscaleInput,
+  QuantizedMeshResult,
 } from "./worker/worker-util";
 
 interface QuantizedMeshTerrainOptions {
@@ -52,7 +54,7 @@ export interface TerrainMeshMeta {
 
 export function createTerrainMesh(
   data: TerrainWorkerOutput,
-  meta: TerrainMeshMeta
+  meta: TerrainMeshMeta,
 ) {
   const {
     minimumHeight,
@@ -72,7 +74,7 @@ export function createTerrainMesh(
     maxVertexDistance,
     tileRect,
     ellipsoid,
-    overscaleFactor
+    overscaleFactor,
   } = meta;
 
   const err = errorLevel;
@@ -92,22 +94,24 @@ export function createTerrainMesh(
   const occlusionPoint = new Cartographic(
     center.longitude,
     center.latitude,
-    occlusionHeight
+    occlusionHeight,
     // Scaling factor of two just to be sure.
   );
 
   const horizonOcclusionPoint = ellipsoid.transformPositionToScaledSpace(
-    Cartographic.toCartesian(occlusionPoint)
+    Cartographic.toCartesian(occlusionPoint),
   );
 
   let orientedBoundingBox = OrientedBoundingBox.fromRectangle(
     tileRect,
     minimumHeight,
     maximumHeight,
-    ellipsoid
+    ellipsoid,
   );
   let boundingSphere =
     BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox);
+
+  console.log("Step 1");
 
   return new RasterTerrainData({
     minimumHeight,
@@ -144,16 +148,17 @@ interface EmptyMeshOptions {
 }
 
 export function createEmptyMesh(
-  opts: EmptyMeshOptions
+  opts: EmptyMeshOptions,
 ): QuantizedMeshTerrainData {
-  const { tileRect, tileCoord, errorLevel, ellipsoid, maxVertexDistance } = opts;
+  const { tileRect, tileCoord, errorLevel, ellipsoid, maxVertexDistance } =
+    opts;
   const center = Rectangle.center(tileRect);
   const { z } = tileCoord;
 
   const latScalar = Math.min(Math.abs(Math.sin(center.latitude)), 0.995);
   let v = Math.max(
     Math.ceil((200 / (z + 1)) * Math.pow(1 - latScalar, 0.25)),
-    4
+    4,
   );
   const output = emptyMesh(v);
   // We use zero for some undefined values
@@ -163,7 +168,7 @@ export function createEmptyMesh(
     errorLevel,
     overscaleFactor: 0,
     maxVertexDistance,
-    tileSize: output.tileSize
+    tileSize: output.tileSize,
   });
 }
 
@@ -200,7 +205,7 @@ export class RasterTerrainData
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
 
-    console.log("Upsampling terrain data")
+    console.log("Upsampling terrain data");
 
     const dz = z - thisLevel;
     const scalar = Math.pow(2, dz);
@@ -211,7 +216,7 @@ export class RasterTerrainData
 
     const maxVertexDistance = Math.min(
       this.maxVertexDistance * scalar,
-      this.tileSize
+      this.tileSize,
     );
 
     const upscaledX = thisX * scalar;
@@ -225,11 +230,7 @@ export class RasterTerrainData
 
     const res = buildOverscaledTerrainTile({
       tilingScheme,
-      heightData: {
-        type: "heightfield",
-        array: subsetByWindow(this.quantizedHeights, window, true),
-        window,
-      },
+      heightData: subsetByWindow(this.quantizedHeights, window, true),
       maxVertexDistance,
       tileCoord: { x, y, z },
       errorLevel: err,
@@ -253,7 +254,7 @@ export class RasterTerrainData
     thisLevel,
     descendantX,
     descendantY,
-    descendantLevel
+    descendantLevel,
   ) {
     if (this.quantizedHeights == null) {
       return super.upsample(
@@ -263,7 +264,7 @@ export class RasterTerrainData
         thisLevel,
         descendantX,
         descendantY,
-        descendantLevel
+        descendantLevel,
       );
     }
     return this._upsample(
@@ -273,14 +274,14 @@ export class RasterTerrainData
       thisLevel,
       descendantX,
       descendantY,
-      descendantLevel
+      descendantLevel,
     );
   }
 }
 
 type OverscaleTerrainOptions = TerrainUpscaleInput & {
   tilingScheme: TilingScheme;
-}
+};
 
 async function buildOverscaledTerrainTile(opts: OverscaleTerrainOptions) {
   const { tilingScheme, overscaleFactor, ...workerOpts } = opts;
@@ -292,8 +293,11 @@ async function buildOverscaledTerrainTile(opts: OverscaleTerrainOptions) {
   const { errorLevel, maxVertexDistance, tileSize } = workerOpts;
 
   try {
-    const res = await upsamplerFarm.scheduleTask(workerOpts, [workerOpts.heightData.buffer]) as QuantizedMeshResult;
+    const res = (await upsamplerFarm.scheduleTask(workerOpts, [
+      workerOpts.heightData.buffer,
+    ])) as QuantizedMeshResult;
 
+    console.log(res);
     return createTerrainMesh(res, {
       tileRect,
       ellipsoid,
@@ -301,9 +305,10 @@ async function buildOverscaledTerrainTile(opts: OverscaleTerrainOptions) {
       overscaleFactor,
       tileSize,
       // Maximum vertex distance
-      maxVertexDistance
+      maxVertexDistance,
     });
   } catch (err) {
+    console.error(err);
     return createEmptyMesh({
       tileRect,
       errorLevel,
@@ -314,8 +319,10 @@ async function buildOverscaledTerrainTile(opts: OverscaleTerrainOptions) {
   }
 }
 
-
 import UpsamplerWorker from "web-worker:./worker/upsampler-worker";
 import WorkerFarm from "./worker/worker-farm";
 
-const upsamplerFarm = new WorkerFarm({ worker: new UpsamplerWorker(), maxWorkers: 5 });
+const upsamplerFarm = new WorkerFarm({
+  worker: new UpsamplerWorker(),
+  maxWorkers: 5,
+});

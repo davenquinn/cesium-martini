@@ -12,20 +12,24 @@ export interface TerrainWorkerInput extends QuantizedMeshOptions {
   z: number;
 }
 
-
-export interface TerrainUpscaleInput extends Omit<TerrainWorkerInput, "imageData"> {
+export interface TerrainUpscaleInput
+  extends Omit<TerrainWorkerInput, "imageData"> {
   overscaleFactor: number;
-  heightData: Float32Array
+  heightData: Float32Array;
 }
 
-
-
-export type DecodeRgbFunction = (r: number, g: number, b: number, a: number) => number;
+export type DecodeRgbFunction = (
+  r: number,
+  g: number,
+  b: number,
+  a: number,
+) => number;
 
 /** Mapbox Terrain-RGB default decode function
-*  (r * 256 * 256) / 10 + (g * 256) / 10 + b / 10 - 10000
-*/
-const defaultMapboxDecodeRgb: DecodeRgbFunction = (r, g, b, a) => (r * 6553.6) + (g * 25.6) + b * 0.1 - 10000;
+ *  (r * 256 * 256) / 10 + (g * 256) / 10 + b / 10 - 10000
+ */
+const defaultMapboxDecodeRgb: DecodeRgbFunction = (r, g, b, a) =>
+  r * 6553.6 + g * 25.6 + b * 0.1 - 10000;
 
 function rgbTerrainToGrid(png: ndarray<number>, decodeRgb?: DecodeRgbFunction) {
   // maybe we should do this on the GPU using REGL?
@@ -63,7 +67,7 @@ export type Window = { x0: number; x1: number; y0: number; y1: number };
 export function subsetByWindow(
   array: Float32Array,
   window: Window,
-  augmented: boolean
+  augmented: boolean,
 ) {
   const sz = Math.sqrt(array.length);
   const x0 = window.x0;
@@ -183,7 +187,7 @@ export interface QuantizedMeshResult {
   southIndices: number[];
   eastIndices: number[];
   northIndices: number[];
-  quantizedHeights?: Float32Array
+  quantizedHeights?: Float32Array;
 }
 
 /** Terrain workers should return a quantized mesh */
@@ -193,7 +197,7 @@ function createQuantizedMeshData(
   tile: any,
   mesh: any,
   tileSize: number,
-  terrain: Float32Array | null
+  terrain: Float32Array | null,
 ): QuantizedMeshResult {
   /** Terrain is passed through so we can keep track of it
    * for overscaled tiles
@@ -245,7 +249,7 @@ function createQuantizedMeshData(
   const triangles = new Uint16Array(mesh.triangles);
   const quantizedVertices = new Uint16Array(
     //verts
-    [...xvals, ...yvals, ...heights]
+    [...xvals, ...yvals, ...heights],
   );
 
   // SE NW NE

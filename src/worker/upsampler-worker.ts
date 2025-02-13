@@ -1,8 +1,5 @@
 /** Worker to upsample terrain meshes */
-import {
-  createQuantizedMeshData,
-  TerrainUpscaleInput
-} from "./worker-util";
+import { createQuantizedMeshData, TerrainUpscaleInput } from "./worker-util";
 import Martini from "@mapbox/martini";
 // https://github.com/CesiumGS/cesium/blob/1.76/Source/WorkersES6/createVerticesFromQuantizedTerrainMesh.js
 
@@ -10,7 +7,7 @@ let martiniCache: Record<number, Martini> = {};
 
 function decodeTerrain(
   parameters: TerrainUpscaleInput,
-  transferableObjects?: Transferable[]
+  transferableObjects?: Transferable[],
 ) {
   const {
     heightData,
@@ -22,8 +19,7 @@ function decodeTerrain(
   // Height data can be either an array of numbers (for pre-existing terrain data)
   // or an image data array (for decoding from an image)
 
-
-  let terrain: Float32Array = heightData.array;
+  let terrain: Float32Array = heightData;
 
   // Tile size must be maintained through the life of the worker
   martiniCache[tileSize] ??= new Martini(tileSize + 1);
@@ -39,7 +35,7 @@ function decodeTerrain(
     mesh,
     tileSize,
     // Only include vertex data if anticipate upscaling tile
-    canUpscaleTile ? terrain : null
+    canUpscaleTile ? terrain : null,
   );
   transferableObjects.push(res.indices.buffer);
   transferableObjects.push(res.quantizedVertices.buffer);
