@@ -1,8 +1,9 @@
 martini
 img
 examples
-src
+node_modules
 .env
 .idea
 .yarn
+.prettierrc
 webpack.config.js

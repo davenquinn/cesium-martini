@@ -6,12 +6,7 @@ const deps = { ...pkg.dependencies, ...pkg.peerDependencies };
 import webWorkerLoader from "rollup-plugin-web-worker-loader";
 import commonjs from "@rollup/plugin-commonjs";
 
-//https://2ality.com/2017/02/babel-preset-env.html
-
 const extensions = [".js", ".ts"];
-
-let external = Object.keys(deps);
-delete external["maplibre-gl"];
 
 export default {
   input: "src/index.ts", // our source file
@@ -34,7 +29,7 @@ export default {
     commonjs(),
     babel({
       extensions,
-      include: ["src/**/*.ts", "node_modules/maplibre-gl/**/*.ts"],
+      include: ["src/**/*.ts"],
     }),
     webWorkerLoader({
       inline: true,
