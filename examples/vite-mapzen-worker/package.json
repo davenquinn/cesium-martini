@@ -2,6 +2,7 @@
   "name": "example-vite-mapzen-worker",
   "private": true,
   "main": "index.html",
+  "type": "module",
   "scripts": {
     "dev": "vite ."
   },

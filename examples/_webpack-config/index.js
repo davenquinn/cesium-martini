@@ -17,8 +17,9 @@ module.exports = {
     alias: {
       // CesiumJS module name,
       cesiumSource,
+      "cesium/Source": cesiumSource,
       cesium: "cesium/Source/Cesium",
-      lib: path.resolve(__dirname, "..", "..", "src"),
+      lib: path.resolve(__dirname, "..", "..", "dist"),
     },
     // We need fallbacks for cesium source files
     fallback: {
@@ -41,26 +42,31 @@ module.exports = {
       {
         test: /\.ts$/,
         exclude: /node_modules/,
-        use: [{
-          loader: require.resolve("babel-loader"),
-          options: {
-            presets: [
-              require.resolve("@babel/preset-env"),
-              require.resolve("@babel/preset-typescript"),
-            ]
-          }
-        }]
+        use: [
+          {
+            loader: require.resolve("babel-loader"),
+            options: {
+              presets: [
+                require.resolve("@babel/preset-env"),
+                require.resolve("@babel/preset-typescript"),
+              ],
+            },
+          },
+        ],
       },
       {
         test: /\.(png|svg)$/,
-        use: [require.resolve("file-loader")]
+        use: [require.resolve("file-loader")],
       },
-      { test: /\.css$/, use: [require.resolve("style-loader"), require.resolve("css-loader")] },
-    ]
+      {
+        test: /\.css$/,
+        use: [require.resolve("style-loader"), require.resolve("css-loader")],
+      },
+    ],
   },
   amd: {
     // Enable webpack-friendly use of require in Cesium
-    toUrlUndefined: true
+    toUrlUndefined: true,
   },
   plugins: [
     new HtmlWebpackPlugin({
@@ -81,5 +87,5 @@ module.exports = {
       CESIUM_BASE_URL: JSON.stringify("/cesium"),
       // Git revision information
     }),
-  ]
+  ],
 };

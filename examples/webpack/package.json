@@ -2,7 +2,7 @@
   "name": "example-webpack",
   "private": true,
   "scripts": {
-    "dev": "webpack-dev-server ./src/index.ts"
+    "dev": "webpack-dev-server ./index.ts"
   },
   "author": "",
   "license": "ISC",

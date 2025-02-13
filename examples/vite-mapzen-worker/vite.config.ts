@@ -2,7 +2,9 @@ import { UserConfig } from "vite";
 import cesium from "vite-plugin-cesium";
 import path from "path";
 
-const cesiumRoot = require.resolve("cesium").replace("/index.cjs", "/Build");
+const cesiumRoot = import.meta
+  .resolve("cesium")
+  .replace("/index.cjs", "/Build");
 const cesiumBuildPath = path.resolve(cesiumRoot, "Cesium");
 
 const config: UserConfig = {
@@ -19,7 +21,7 @@ const config: UserConfig = {
   envPrefix: "MAPBOX_",
   envDir: path.join(__dirname, "..", ".."),
   // Not sure what the difference between cesiumBuildPath and cesiumBuildRootPath is
-  plugins: [cesium({cesiumBuildPath, cesiumBuildRootPath: cesiumRoot})],
+  plugins: [cesium({ cesiumBuildPath, cesiumBuildRootPath: cesiumRoot })],
 };
 
 export default config;

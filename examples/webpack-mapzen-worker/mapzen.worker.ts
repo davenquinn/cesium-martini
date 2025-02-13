@@ -1,8 +1,4 @@
-import {
-  rgbTerrainToGrid,
-  createQuantizedMeshData,
-  // @ts-ignore
-} from "lib/worker/worker-util";
+import { rgbTerrainToGrid, createQuantizedMeshData } from "lib";
 import ndarray from "ndarray";
 import Martini from "@mapbox/martini";
 
