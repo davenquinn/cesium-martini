@@ -150,6 +150,15 @@ The configuration also takes a single number and array.
 
 ## Changelog
 
+### `[1.5.3]`: February 2025
+
+- Removed `source` field from package.json, as it should be reserved for modules that
+  can be bundled without special treatment (e.g., web worker compilation).
+
+### `[1.5.2]`: February 2025
+
+- Added `source` field to package.json
+
 ### `[1.5.1]`: February 2025
 
 - Remove `.idea` files from bundle
