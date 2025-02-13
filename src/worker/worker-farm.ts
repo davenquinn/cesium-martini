@@ -44,7 +44,7 @@ function handleMessage(msg) {
   delete rejects[id];
 }
 
-class WorkerFarm {
+export class WorkerFarm {
   worker: Worker;
   inProgressWorkers: number = 0;
   maxWorkers: number = 5;

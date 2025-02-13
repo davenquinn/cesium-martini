@@ -1,8 +1,4 @@
-// We should save these
-//const canvas = new OffscreenCanvas(256, 256);
-//const ctx = canvas.getContext("2d");
-import ndarray from "ndarray";
-import { TilingScheme } from "cesium";
+import type { NdArray } from "ndarray";
 
 export interface TerrainWorkerInput extends QuantizedMeshOptions {
   imageData: Uint8ClampedArray;
@@ -31,7 +27,7 @@ export type DecodeRgbFunction = (
 const defaultMapboxDecodeRgb: DecodeRgbFunction = (r, g, b, a) =>
   r * 6553.6 + g * 25.6 + b * 0.1 - 10000;
 
-function rgbTerrainToGrid(png: ndarray<number>, decodeRgb?: DecodeRgbFunction) {
+function rgbTerrainToGrid(png: NdArray, decodeRgb?: DecodeRgbFunction) {
   // maybe we should do this on the GPU using REGL?
   // but that would require GPU -> CPU -> GPU
   const gridSize = png.shape[0] + 1;

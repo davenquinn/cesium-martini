@@ -13,12 +13,16 @@ import {
   TerrainWorkerInput,
   TerrainWorkerOutput,
   emptyMesh,
-  Window,
-  TileCoordinates,
   subsetByWindow,
   TerrainUpscaleInput,
   QuantizedMeshResult,
 } from "./worker/worker-util";
+
+export interface TileCoordinates {
+  x: number;
+  y: number;
+  z: number;
+}
 
 interface QuantizedMeshTerrainOptions {
   quantizedVertices: Uint16Array;
@@ -188,8 +192,6 @@ export class RasterTerrainData
   extends QuantizedMeshTerrainData
   implements RasterParams
 {
-  workerInput: TerrainWorkerInput | undefined;
-  levelOverviews: RasterTerrainData[] = [];
   quantizedHeights: Float32Array;
   errorLevel: number;
   maxVertexDistance: number;

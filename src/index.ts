@@ -1,3 +1,4 @@
+import "./module.d.ts";
 import DefaultHeightmapResource from "./resources/heightmap-resource";
 import MapboxTerrainResource from "./resources/mapbox-resource";
 import {

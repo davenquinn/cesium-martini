@@ -17,26 +17,20 @@ import {
   TerrainWorkerInput,
   emptyMesh as _emptyMesh,
 } from "./worker/worker-util";
+import { WorkerFarm } from "./worker/worker-farm";
 import { HeightmapResource } from "./resources/heightmap-resource";
 import WorkerFarmTerrainDecoder, {
   TerrainDecoder,
   DefaultTerrainDecoder,
 } from "./worker/decoder";
 import {
-  buildTerrainTile,
   createEmptyMesh,
   createTerrainMesh,
-  TerrainBuilderOpts,
   TerrainMeshMeta,
 } from "./terrain-data";
+import { TileCoordinates } from "./terrain-data";
 
 // https://github.com/CesiumGS/cesium/blob/1.68/Source/Scene/MapboxImageryProvider.js#L42
-
-export interface TileCoordinates {
-  x: number;
-  y: number;
-  z: number;
-}
 
 export interface MartiniTerrainOpts {
   resource: HeightmapResource;
@@ -306,7 +300,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
     // NE NW SE
 
     /** TODO: we need to create raster terrain data. */
-    let result = new QuantizedMeshTerrainData({
+    return new QuantizedMeshTerrainData({
       minimumHeight,
       maximumHeight,
       quantizedVertices,
@@ -324,8 +318,6 @@ export class MartiniTerrainProvider<TerrainProvider> {
       northSkirtHeight: skirtHeight,
       childTileMask: 15,
     });
-
-    return result;
   }
 
   getLevelMaximumGeometricError(level) {
