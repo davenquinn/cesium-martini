@@ -14,6 +14,7 @@ export type MapboxTerrainResourceOpts = {
   highResolution?: boolean;
   imageFormat?: ImageFormat;
   accessToken?: string;
+  urlTemplate?: string;
 } & DefaultHeightmapResourceOpts;
 
 export class MapboxTerrainResource extends DefaultHeightmapResource {
@@ -24,6 +25,7 @@ export class MapboxTerrainResource extends DefaultHeightmapResource {
     super(opts);
     const highResolution = opts.highResolution ?? false;
     const format = opts.imageFormat ?? ImageFormat.WEBP;
+    const { urlTemplate } = opts;
 
     // overrides based on highResolution flag
     if (highResolution) {
@@ -35,11 +37,11 @@ export class MapboxTerrainResource extends DefaultHeightmapResource {
       }
     }
 
-    this.resource = Resource.createIfNeeded(
-      `https://api.mapbox.com/v4/mapbox.terrain-rgb/{z}/{x}/{y}${
-        highResolution ? "@2x" : ""
-      }.${format}`
-    );
+    const defaultURL = `https://api.mapbox.com/v4/mapbox.terrain-rgb/{z}/{x}/{y}${
+      highResolution ? "@2x" : ""
+    }.${format}`;
+
+    this.resource = new Resource({ url: urlTemplate ?? defaultURL });
     if (opts.accessToken) {
       this.resource.setQueryParameters({
         access_token: opts.accessToken,

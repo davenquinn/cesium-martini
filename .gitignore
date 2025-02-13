@@ -9,3 +9,4 @@ dist
 .pnp.*
 
 .vite
+.idea

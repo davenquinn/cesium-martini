@@ -1,20 +1,16 @@
-import {
-  rgbTerrainToGrid,
-  createQuantizedMeshData,
-  TerrainWorkerInput,
-} from "./worker-util";
-import ndarray from "ndarray";
+/** Worker to upsample terrain meshes */
+import { createQuantizedMeshData, TerrainUpscaleInput } from "./worker-util";
 import Martini from "@mapbox/martini";
 // https://github.com/CesiumGS/cesium/blob/1.76/Source/WorkersES6/createVerticesFromQuantizedTerrainMesh.js
 
-let martiniCache = {};
+let martiniCache: Record<number, Martini> = {};
 
 function decodeTerrain(
-  parameters: TerrainWorkerInput,
+  parameters: TerrainUpscaleInput,
   transferableObjects?: Transferable[],
 ) {
   const {
-    imageData,
+    heightData,
     tileSize = 256,
     errorLevel,
     maxVertexDistance,
@@ -23,25 +19,7 @@ function decodeTerrain(
   // Height data can be either an array of numbers (for pre-existing terrain data)
   // or an image data array (for decoding from an image)
 
-  const heightData = {
-    type: "image",
-    array: imageData,
-  };
-
-  let terrain: Float32Array;
-  if (heightData.type === "image") {
-    const { array } = heightData;
-    const pixels = ndarray(
-      new Uint8Array(array),
-      [tileSize, tileSize, 4],
-      [4, 4 * tileSize, 1],
-      0,
-    );
-    terrain = rgbTerrainToGrid(pixels);
-  } else {
-    // @ts-ignore
-    terrain = heightData.array;
-  }
+  let terrain: Float32Array = heightData;
 
   // Tile size must be maintained through the life of the worker
   martiniCache[tileSize] ??= new Martini(tileSize + 1);

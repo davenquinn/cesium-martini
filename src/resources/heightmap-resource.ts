@@ -1,10 +1,10 @@
 import { Resource, Credit } from "cesium";
-import { TileCoordinates } from "../terrain-provider";
+import { TileCoordinates } from "../terrain-data";
 
 export interface HeightmapResource {
   credit?: Credit;
   tileSize: number;
-  getTilePixels: (coords: TileCoordinates) => Promise<ImageData>;
+  getTilePixels: (coords: TileCoordinates) => Promise<ImageData> | undefined;
   getTileDataAvailable: (coords: TileCoordinates) => boolean;
 }
 
@@ -12,19 +12,11 @@ interface CanvasRef {
   canvas: HTMLCanvasElement;
   context: CanvasRenderingContext2D;
 }
-
-export const loadImage: (url: string) => Promise<HTMLImageElement> = (url) =>
-  new Promise((resolve, reject) => {
-    const img = new Image();
-    img.addEventListener("load", () => resolve(img));
-    img.addEventListener("error", (err) => reject(err));
-    img.crossOrigin = "anonymous";
-    img.src = url;
-  });
-
 export interface DefaultHeightmapResourceOpts {
   url?: string;
+  // Legacy option, use skipZoomLevels instead
   skipOddLevels?: boolean;
+  skipZoomLevels?: [number] | ((z: number) => boolean);
   maxZoom?: number;
   tileSize?: number;
 }
@@ -33,14 +25,25 @@ export class DefaultHeightmapResource implements HeightmapResource {
   resource: Resource = null;
   tileSize: number = 256;
   maxZoom: number;
-  skipOddLevels: boolean = false;
+  skipZoomLevel: (z: number) => boolean;
   contextQueue: CanvasRef[];
 
   constructor(opts: DefaultHeightmapResourceOpts = {}) {
     if (opts.url) {
-      this.resource = Resource.createIfNeeded(opts.url);
+      this.resource = new Resource({ url: opts.url });
     }
-    this.skipOddLevels = opts.skipOddLevels ?? false;
+    this.skipZoomLevel = () => false;
+    if (opts.skipZoomLevels) {
+      if (Array.isArray(opts.skipZoomLevels)) {
+        const _skipZoomLevels = opts.skipZoomLevels as [number];
+        this.skipZoomLevel = (z: number) => _skipZoomLevels.includes(z);
+      } else {
+        this.skipZoomLevel = opts.skipZoomLevels;
+      }
+    } else if (opts.skipOddLevels) {
+      this.skipZoomLevel = (z: number) => z % 2 == 1;
+    }
+
     this.tileSize = opts.tileSize ?? 256;
     this.maxZoom = opts.maxZoom ?? 15;
     this.contextQueue = [];
@@ -74,30 +77,41 @@ export class DefaultHeightmapResource implements HeightmapResource {
     return pixels;
   }
 
-  buildTileURL(tileCoords: TileCoordinates) {
+  getTileResource(tileCoords: TileCoordinates) {
     // reverseY for TMS tiling (https://gist.github.com/tmcw/4954720)
     // See tiling schemes here: https://www.maptiler.com/google-maps-coordinates-tile-bounds-projection/
     const { z, y } = tileCoords;
-    return this.resource
-      ?.getDerivedResource({
-        templateValues: {
-          ...tileCoords,
-          reverseY: Math.pow(2, z) - y - 1,
-        },
-        preserveQueryParameters: true,
-      })
-      .getUrlComponent(true);
+    return this.resource.getDerivedResource({
+      templateValues: {
+        ...tileCoords,
+        reverseY: Math.pow(2, z) - y - 1,
+      },
+      preserveQueryParameters: true,
+    });
   }
 
-  getTilePixels = async (coords: TileCoordinates) => {
-    const url = this.buildTileURL(coords);
-    let img = await loadImage(url);
-    return this.getPixels(img);
-  };
+  getTilePixels(coords: TileCoordinates): Promise<ImageData> | undefined {
+    const resource = this.getTileResource(coords);
+    const request = resource.fetchImage({
+      preferImageBitmap: false,
+      // @ts-ignore
+      retryAttempts: 3,
+    });
+    if (request == null) return undefined;
+    return request.then((img: HTMLImageElement | ImageBitmap) =>
+      // @ts-ignore
+      this.getPixels(img),
+    );
+  }
 
   getTileDataAvailable({ z }) {
     if (z == this.maxZoom) return true;
-    if (z % 2 == 1 && this.skipOddLevels) return false;
+    /* Weird hack:
+    For some reason, request render mode breaks if zoom 1 tiles are disabled.
+    So we have to make sure that we always report zoom 1 tiles as available.
+    */
+    if (z < 2) return true;
+    if (this.skipZoomLevel(z)) return false;
     if (z > this.maxZoom) return false;
     return true;
   }

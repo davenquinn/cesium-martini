@@ -1,7 +1,7 @@
 import "core-js/stable";
 import "./main.css";
-import "cesiumSource/Widgets/widgets.css";
-const Cesium: any = require("cesiumSource/Cesium");
+import "cesium/Source/Widgets/widgets.css";
+const Cesium: any = require("cesium/Source/Cesium");
 // Import @types/cesium to use along with CesiumJS
 import { MapboxImageryProvider } from "cesium";
 import TerrainProvider from "../../../dist";
@@ -25,7 +25,7 @@ const SatelliteLayer = (props) => {
       mapId: "mapbox.satellite",
       maximumLevel: 19,
       accessToken: process.env.MAPBOX_API_TOKEN,
-    })
+    }),
   );
 
   return h(ImageryLayer, { imageryProvider: satellite.current, ...props });
@@ -50,12 +50,12 @@ function CesiumView() {
     {
       full: true,
       terrainProvider: terrainProvider,
-      imageryProvider: false,
+      //imageryProvider: false,
       animation: false,
       baseLayerPicker: false,
-      timeline: false
+      timeline: false,
     },
-    [h(SatelliteLayer), h(Inspector)]
+    [h(SatelliteLayer), h(Inspector)],
   );
 }
 render(h(CesiumView), document.body);

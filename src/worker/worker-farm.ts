@@ -2,7 +2,11 @@ const resolves = {};
 const rejects = {};
 let globalMsgId = 0; // Activate calculation in the worker, returning a promise
 
-async function sendMessage(worker, payload, transferableObjects) {
+async function sendMessage(
+  worker: Worker,
+  payload: any,
+  transferableObjects: Transferable[],
+) {
   const msgId = globalMsgId++;
   const msg = {
     id: msgId,
@@ -40,15 +44,41 @@ function handleMessage(msg) {
   delete rejects[id];
 }
 
-class WorkerFarm {
+export class WorkerFarm {
   worker: Worker;
+  inProgressWorkers: number = 0;
+  maxWorkers: number = 5;
+  processingQueue: Function[] = [];
+
   constructor(opts) {
     this.worker = opts.worker;
     this.worker.onmessage = handleMessage;
   }
 
   async scheduleTask(params, transferableObjects) {
-    return await sendMessage(this.worker, params, transferableObjects);
+    const res = await sendMessage(this.worker, params, transferableObjects);
+    this.releaseWorker();
+    return res;
+  }
+
+  async holdForAvailableWorker(): Promise<void> {
+    let resultPromise: Promise<void>;
+    if (this.inProgressWorkers > this.maxWorkers) {
+      resultPromise = new Promise((resolve, reject) => {
+        this.processingQueue.push(resolve);
+      });
+    } else {
+      resultPromise = Promise.resolve(null);
+    }
+    await resultPromise;
+    this.inProgressWorkers += 1;
+  }
+
+  releaseWorker() {
+    this.inProgressWorkers -= 1;
+    if (this.processingQueue.length > 0) {
+      this.processingQueue.shift()();
+    }
   }
 }
 

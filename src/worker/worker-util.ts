@@ -1,24 +1,33 @@
-// We should save these
-//const canvas = new OffscreenCanvas(256, 256);
-//const ctx = canvas.getContext("2d");
-import ndarray from "ndarray";
+import type { NdArray } from "ndarray";
 
 export interface TerrainWorkerInput extends QuantizedMeshOptions {
   imageData: Uint8ClampedArray;
-  maxLength: number | null;
+  maxVertexDistance: number | null;
   x: number;
   y: number;
   z: number;
 }
 
-export type DecodeRgbFunction = (r: number, g: number, b: number, a: number) => number;
+export interface TerrainUpscaleInput
+  extends Omit<TerrainWorkerInput, "imageData"> {
+  overscaleFactor: number;
+  heightData: Float32Array;
+}
+
+export type DecodeRgbFunction = (
+  r: number,
+  g: number,
+  b: number,
+  a: number,
+) => number;
 
 /** Mapbox Terrain-RGB default decode function
-*  (r * 256 * 256) / 10 + (g * 256) / 10 + b / 10 - 10000
-*/
-const defaultMapboxDecodeRgb: DecodeRgbFunction = (r, g, b, a) => (r * 6553.6) + (g * 25.6) + b * 0.1 - 10000;
+ *  (r * 256 * 256) / 10 + (g * 256) / 10 + b / 10 - 10000
+ */
+const defaultMapboxDecodeRgb: DecodeRgbFunction = (r, g, b, a) =>
+  r * 6553.6 + g * 25.6 + b * 0.1 - 10000;
 
-function rgbTerrainToGrid(png: ndarray<number>, decodeRgb?: DecodeRgbFunction) {
+function rgbTerrainToGrid(png: NdArray, decodeRgb?: DecodeRgbFunction) {
   // maybe we should do this on the GPU using REGL?
   // but that would require GPU -> CPU -> GPU
   const gridSize = png.shape[0] + 1;
@@ -49,7 +58,31 @@ function rgbTerrainToGrid(png: ndarray<number>, decodeRgb?: DecodeRgbFunction) {
   return terrain;
 }
 
-function testMeshData() {
+export type Window = { x0: number; x1: number; y0: number; y1: number };
+
+export function subsetByWindow(
+  array: Float32Array,
+  window: Window,
+  augmented: boolean,
+) {
+  const sz = Math.sqrt(array.length);
+  const x0 = window.x0;
+  const x1 = window.x1;
+  const y0 = window.y0;
+  const y1 = window.y1;
+  const aug = augmented ? 1 : 0;
+  const n = Math.floor(x1 - x0) + aug;
+  const m = Math.floor(y1 - y0) + aug;
+  const result = new Float32Array(n * m);
+  for (let i = 0; i < m; i++) {
+    for (let j = 0; j < n; j++) {
+      result[i * n + j] = array[(i + y0) * sz + j + x0];
+    }
+  }
+  return result;
+}
+
+export function testMeshData(): QuantizedMeshResult {
   return {
     minimumHeight: -100,
     maximumHeight: 2101,
@@ -150,9 +183,22 @@ export interface QuantizedMeshResult {
   southIndices: number[];
   eastIndices: number[];
   northIndices: number[];
+  quantizedHeights?: Float32Array;
 }
 
-function createQuantizedMeshData(tile, mesh, tileSize): QuantizedMeshResult {
+/** Terrain workers should return a quantized mesh */
+export type TerrainWorkerOutput = QuantizedMeshResult;
+
+function createQuantizedMeshData(
+  tile: any,
+  mesh: any,
+  tileSize: number,
+  terrain: Float32Array | null,
+): QuantizedMeshResult {
+  /** Terrain is passed through so we can keep track of it
+   * for overscaled tiles
+   */
+
   const xvals = [];
   const yvals = [];
   const heightMeters = [];
@@ -165,6 +211,8 @@ function createQuantizedMeshData(tile, mesh, tileSize): QuantizedMeshResult {
   let maximumHeight = -Infinity;
   const scalar = 32768.0 / tileSize;
 
+  // There appears to be a problem with the x/y indexing when using 512x512 tiles
+  // This may be solved by increasing the minumumErrorLevel in the terrain provider
   for (let ix = 0; ix < mesh.vertices.length / 2; ix++) {
     const vertexIx = ix;
     const px = mesh.vertices[ix * 2];
@@ -191,13 +239,13 @@ function createQuantizedMeshData(tile, mesh, tileSize): QuantizedMeshResult {
 
   const heights = heightMeters.map((d) => {
     if (heightRange < 1) return 0;
-    return (d - minimumHeight) * (32767.0 / heightRange);
+    return (d - minimumHeight) * (32768.0 / heightRange);
   });
 
   const triangles = new Uint16Array(mesh.triangles);
   const quantizedVertices = new Uint16Array(
     //verts
-    [...xvals, ...yvals, ...heights]
+    [...xvals, ...yvals, ...heights],
   );
 
   // SE NW NE
@@ -212,6 +260,7 @@ function createQuantizedMeshData(tile, mesh, tileSize): QuantizedMeshResult {
     southIndices,
     eastIndices,
     northIndices,
+    quantizedHeights: terrain,
   };
 }
 

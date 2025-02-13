@@ -1,11 +1,13 @@
 {
   "name": "@macrostrat/cesium-martini",
-  "version": "1.4.0",
+  "version": "1.5.0-dev1",
   "description": "",
-  "main": "dist/index.cjs",
-  "module": "dist/index.js",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "source": "./src/index.ts",
   "exports": {
     ".": {
+      "typescript": "./src/index.ts",
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     }
@@ -20,13 +22,15 @@
     "example:webpack-mapzen": "yarn workspace example-webpack-mapzen-worker run dev",
     "dev": "yarn run watch & yarn run example",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "format": "prettier --write src/**/*.ts examples/**/*.ts",
+    "check": "tsc --noEmit"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
     "@mapbox/martini": "git+https://github.com/davenquinn/martini.git",
-    "@types/ndarray": "^1.0.7",
+    "@types/ndarray": "^1.0.11",
     "axios": "^1.7.9",
     "cesium": "^1.81.0",
     "get-pixels": "^3.3.2",
@@ -40,16 +44,14 @@
     "url": "https://github.com/davenquinn/cesium-martini.git"
   },
   "devDependencies": {
-    "@babel/core": "^7.11.1",
-    "@babel/plugin-proposal-class-properties": "^7.8.3",
-    "@babel/plugin-proposal-nullish-coalescing-operator": "^7.8.3",
-    "@babel/plugin-proposal-optional-chaining": "^7.9.0",
-    "@babel/preset-env": "^7.11.0",
-    "@babel/preset-typescript": "^7.10.4",
-    "@macrostrat/hyper": "^1.2.13",
+    "@babel/core": "^7.16.7",
+    "@babel/preset-env": "^7.16.7",
+    "@babel/preset-typescript": "^7.16.7",
+    "@macrostrat/hyper": "^3.0.6",
     "@rollup/plugin-babel": "^5.3.0",
     "@rollup/plugin-commonjs": "^17.0.0",
     "@rollup/plugin-node-resolve": "^7.1.3",
+    "prettier": "^3.5.0",
     "rollup": "^2.39.0",
     "rollup-plugin-web-worker-loader": "^1.5.0",
     "typescript": "^5.0.0"

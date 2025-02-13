@@ -2,6 +2,7 @@
   "name": "example-vite",
   "private": true,
   "main": "index.html",
+  "type": "module",
   "scripts": {
     "dev": "vite ."
   },
