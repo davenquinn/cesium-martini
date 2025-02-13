@@ -9,8 +9,10 @@ const terrainProvider = new TerrainProvider({
   requestVertexNormals: false,
   requestWaterMask: false,
   accessToken: import.meta.env.MAPBOX_API_TOKEN,
-  skipOddLevels: true,
   highResolution: true,
+  skipZoomLevels(z: number) {
+    return z % 3 != 0;
+  },
 });
 
 let satellite = new Cesium.MapboxImageryProvider({
@@ -52,7 +54,7 @@ const rect = Cesium.Rectangle.fromDegrees(
   clon - 0.01,
   clat - 0.01,
   clon + 0.01,
-  clat + 0.01
+  clat + 0.01,
 );
 //Cesium.Camera.DEFAULT_VIEW_RECTANGLE = rect;
 //Cesium.Camera.DEFAULT_VIEW_FACTOR = 0.005;

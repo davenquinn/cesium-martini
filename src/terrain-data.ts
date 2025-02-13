@@ -80,6 +80,11 @@ export function createTerrainMesh(
   const err = errorLevel;
   const skirtHeight = err * 20;
 
+  // Check if tileRect is not NaNs
+  if (isNaN(tileRect.east) || isNaN(tileRect.north)) {
+    throw new Error("Invalid tile rect");
+  }
+
   const center = Rectangle.center(tileRect);
 
   // Calculating occlusion height is kind of messy currently, but it definitely works
@@ -111,8 +116,6 @@ export function createTerrainMesh(
   let boundingSphere =
     BoundingSphere.fromOrientedBoundingBox(orientedBoundingBox);
 
-  console.log("Step 1");
-
   return new RasterTerrainData({
     minimumHeight,
     maximumHeight,
@@ -130,7 +133,7 @@ export function createTerrainMesh(
     eastSkirtHeight: skirtHeight,
     northSkirtHeight: skirtHeight,
     childTileMask: 15,
-    createdByUpsampling: false, //overscaleFactor > 0,
+    createdByUpsampling: overscaleFactor > 0,
     errorLevel: err,
     maxVertexDistance,
     tileSize,
@@ -205,7 +208,9 @@ export class RasterTerrainData
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
 
-    console.log("Upsampling terrain data");
+    console.log(
+      `Upsampling terrain data from zoom ${thisLevel} to ${x}/${y}/${z}`,
+    );
 
     const dz = z - thisLevel;
     const scalar = Math.pow(2, dz);
@@ -232,7 +237,9 @@ export class RasterTerrainData
       tilingScheme,
       heightData: subsetByWindow(this.quantizedHeights, window, true),
       maxVertexDistance,
-      tileCoord: { x, y, z },
+      x,
+      y,
+      z,
       errorLevel: err,
       ellipsoidRadius: ellipsoid.maximumRadius,
       tileSize: x1 - x0,
@@ -287,6 +294,7 @@ async function buildOverscaledTerrainTile(opts: OverscaleTerrainOptions) {
   const { tilingScheme, overscaleFactor, ...workerOpts } = opts;
 
   const { x, y, z } = workerOpts;
+
   const tileRect = tilingScheme.tileXYToRectangle(x, y, z);
   const ellipsoid = tilingScheme.ellipsoid;
 
@@ -297,7 +305,6 @@ async function buildOverscaledTerrainTile(opts: OverscaleTerrainOptions) {
       workerOpts.heightData.buffer,
     ])) as QuantizedMeshResult;
 
-    console.log(res);
     return createTerrainMesh(res, {
       tileRect,
       ellipsoid,
