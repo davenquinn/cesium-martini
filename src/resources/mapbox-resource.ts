@@ -41,7 +41,7 @@ export class MapboxTerrainResource extends DefaultHeightmapResource {
       highResolution ? "@2x" : ""
     }.${format}`;
 
-    this.resource = Resource.createIfNeeded(urlTemplate ?? defaultURL);
+    this.resource = new Resource({ url: urlTemplate ?? defaultURL });
     if (opts.accessToken) {
       this.resource.setQueryParameters({
         access_token: opts.accessToken,

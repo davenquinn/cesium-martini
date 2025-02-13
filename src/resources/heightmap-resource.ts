@@ -1,5 +1,5 @@
 import { Resource, Credit } from "cesium";
-import { TileCoordinates } from "../terrain-provider";
+import { TileCoordinates } from "../terrain-data";
 
 export interface HeightmapResource {
   credit?: Credit;
@@ -16,7 +16,7 @@ export interface DefaultHeightmapResourceOpts {
   url?: string;
   // Legacy option, use skipZoomLevels instead
   skipOddLevels?: boolean;
-  skipZoomLevels: [number] | ((z: number) => boolean);
+  skipZoomLevels?: [number] | ((z: number) => boolean);
   maxZoom?: number;
   tileSize?: number;
 }
@@ -30,12 +30,13 @@ export class DefaultHeightmapResource implements HeightmapResource {
 
   constructor(opts: DefaultHeightmapResourceOpts = {}) {
     if (opts.url) {
-      this.resource = Resource.createIfNeeded(opts.url);
+      this.resource = new Resource({ url: opts.url });
     }
     this.skipZoomLevel = () => false;
     if (opts.skipZoomLevels) {
       if (Array.isArray(opts.skipZoomLevels)) {
-        this.skipZoomLevel = (z: number) => opts.skipZoomLevels.includes(z);
+        const _skipZoomLevels = opts.skipZoomLevels as [number];
+        this.skipZoomLevel = (z: number) => _skipZoomLevels.includes(z);
       } else {
         this.skipZoomLevel = opts.skipZoomLevels;
       }
@@ -93,10 +94,12 @@ export class DefaultHeightmapResource implements HeightmapResource {
     const resource = this.getTileResource(coords);
     const request = resource.fetchImage({
       preferImageBitmap: false,
+      // @ts-ignore
       retryAttempts: 3,
     });
     if (request == null) return undefined;
     return request.then((img: HTMLImageElement | ImageBitmap) =>
+      // @ts-ignore
       this.getPixels(img),
     );
   }

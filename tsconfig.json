@@ -14,5 +14,6 @@
     "outDir": "dist/lib",
     "typeRoots": ["node_modules/@types"]
   },
-  "include": ["src", "node_modules/maplibre-gl/src"]
+  "include": ["src", "examples"],
+  "exclude": ["node_modules"]
 }

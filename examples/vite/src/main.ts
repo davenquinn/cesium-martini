@@ -15,13 +15,13 @@ const terrainProvider = new TerrainProvider({
   },
 });
 
-let satellite = new Cesium.MapboxImageryProvider({
+const satellite = new Cesium.MapboxImageryProvider({
   mapId: "mapbox.satellite",
   maximumLevel: 19,
   accessToken: import.meta.env.MAPBOX_API_TOKEN,
 });
 
-var opts = {
+const opts = {
   terrainProvider,
   // imageryProvider: Cesium.createWorldImagery({
   //   style: Cesium.IonWorldImageryStyle.AERIAL,
@@ -47,30 +47,26 @@ const g = document.createElement("div");
 g.id = domID;
 document.body.appendChild(g);
 
-var clat = -21.133786;
-var clon = 14.5481193;
+const clat = -21.133786;
+const clon = 14.5481193;
 
-const rect = Cesium.Rectangle.fromDegrees(
-  clon - 0.01,
-  clat - 0.01,
-  clon + 0.01,
-  clat + 0.01,
-);
+// const rect = Cesium.Rectangle.fromDegrees(
+//   clon - 0.01,
+//   clat - 0.01,
+//   clon + 0.01,
+//   clat + 0.01,
+// );
 //Cesium.Camera.DEFAULT_VIEW_RECTANGLE = rect;
 //Cesium.Camera.DEFAULT_VIEW_FACTOR = 0.005;
 //Cesium.Camera.DEFAULT_VIEW_OFFSET = new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-10), 1)
 
-var viewer = new Cesium.Viewer(domID, opts);
+const viewer = new Cesium.Viewer(domID, opts);
 // Quadtree props: don't preload ancestors
 
-//viewer.scene.globe.baseColor = Cesium.Color.AQUAMARINE
-// @ts-ignore
-//viewer.scene.globe._surface._tileProvider._debug.wireframe = true
-// @ts-ignore
 viewer.extend(Cesium.viewerCesiumInspectorMixin);
 viewer.scene.debugShowFramesPerSecond = true;
 
-var extent = Cesium.Cartesian3.fromDegrees(clon, clat - 0.3, 8000);
+const extent = Cesium.Cartesian3.fromDegrees(clon, clat - 0.3, 8000);
 viewer.camera.setView({
   destination: extent,
   orientation: {
@@ -79,7 +75,3 @@ viewer.camera.setView({
     roll: 0.0, // default value
   },
 });
-
-//viewer.resolutionScale = 2
-//viewer.scene.globe.enableLighting = true
-//viewer.canvas.style.imageRendering = false

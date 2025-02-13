@@ -10,7 +10,6 @@ import {
   TilingScheme,
 } from "cesium";
 import {
-  TerrainWorkerInput,
   TerrainWorkerOutput,
   emptyMesh,
   subsetByWindow,
@@ -296,7 +295,7 @@ export class RasterTerrainData
     });
     if (dz == 1) {
       // If we've got a single child tile, we can track that we've upsampled the parent.
-      const quadrant = getQuadrant(dx, dy);
+      const quadrant = getQuadrant(dx as 0 | 1, dy as 0 | 1);
       this.upsampleTracker[quadrant] = true;
     }
     if (this.upsampleTracker.finished()) {

@@ -9,7 +9,7 @@ const ctx: Worker = self as any;
 
 let martini = null;
 
-const terrariumDecodeRgb = (r, g, b, a) => (r * 256) + g + (b / 256) - 32768;
+const terrariumDecodeRgb = (r, g, b, a) => r * 256 + g + b / 256 - 32768;
 
 function decodeTerrain(parameters) {
   const { imageData, tileSize = 256, errorLevel } = parameters;
@@ -18,7 +18,7 @@ function decodeTerrain(parameters) {
     new Uint8Array(imageData),
     [tileSize, tileSize, 4],
     [4, 4 * tileSize, 1],
-    0
+    0,
   );
 
   // Tile size must be maintained through the life of the worker
@@ -50,5 +50,3 @@ ctx.addEventListener("message", (msg) => {
     objects = null;
   }
 });
-
-export default null as any;

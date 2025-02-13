@@ -30,15 +30,16 @@ function decodeTerrain(
 
   let terrain: Float32Array;
   if (heightData.type === "image") {
-    const { array, interval, offset } = heightData;
+    const { array } = heightData;
     const pixels = ndarray(
       new Uint8Array(array),
       [tileSize, tileSize, 4],
       [4, 4 * tileSize, 1],
       0,
     );
-    terrain = rgbTerrainToGrid(pixels, interval, offset);
+    terrain = rgbTerrainToGrid(pixels);
   } else {
+    // @ts-ignore
     terrain = heightData.array;
   }
 
@@ -73,6 +74,7 @@ self.onmessage = function (msg) {
   let res = null;
   try {
     res = decodeTerrain(payload, objects);
+    // @ts-ignore
     self.postMessage({ id, payload: res }, objects);
   } catch (err) {
     const msg = err.message ?? err;

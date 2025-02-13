@@ -1,5 +1,5 @@
 import { HeightmapTerrainData, QuantizedMeshTerrainData } from "cesium";
-import { TileCoordinates } from "../terrain-provider";
+import { TileCoordinates } from "../terrain-data";
 import WorkerFarm from "./worker-farm";
 import { TerrainWorkerInput, QuantizedMeshResult } from "./worker-util";
 

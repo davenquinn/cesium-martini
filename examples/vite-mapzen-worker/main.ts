@@ -1,12 +1,15 @@
 import "./main.css";
 import "cesium/Source/Widgets/widgets.css";
-import * as Cesium from "cesium"
+import * as Cesium from "cesium";
 // Import @types/cesium to use along with CesiumJS
 import { MartiniTerrainProvider } from "../..";
 import { DefaultHeightmapResource } from "../../src/resources/heightmap-resource";
 import { WorkerFarmTerrainDecoder } from "../../src/worker/decoder";
 
-const terrariumWorker = new Worker(new URL('./mapzen.worker', import.meta.url), {type: 'module'});
+const terrariumWorker = new Worker(
+  new URL("./mapzen.worker", import.meta.url),
+  { type: "module" },
+);
 
 // Mapzen API discontinued, alternate source required
 const terrainResource = new DefaultHeightmapResource({
@@ -20,7 +23,7 @@ const terrainResource = new DefaultHeightmapResource({
 // Terrarium format utilises a different encoding scheme to Mapbox Terrain-RGB
 // @ts-ignore
 const terrainDecoder = new WorkerFarmTerrainDecoder({
-  worker: terrariumWorker
+  worker: terrariumWorker,
 });
 
 // Construct terrain provider with Mapzen datasource and custom RGB decoding
@@ -36,7 +39,7 @@ let satellite = new Cesium.MapboxImageryProvider({
   accessToken: import.meta.env.MAPBOX_API_TOKEN,
 });
 
-var opts = {
+const opts = {
   terrainProvider, //: createWorldTerrain(),
   // imageryProvider: Cesium.createWorldImagery({
   //   style: Cesium.IonWorldImageryStyle.AERIAL,
@@ -54,7 +57,7 @@ var opts = {
   useBrowserRecommendedResolution: false,
   // We have a bug in the tile bounding box calculation somewhere.
   terrainExaggeration: 1.0,
-  baseLayer: new Cesium.ImageryLayer(satellite)
+  baseLayer: new Cesium.ImageryLayer(satellite),
 };
 
 const domID = "cesium-container";
@@ -62,20 +65,10 @@ const g = document.createElement("div");
 g.id = domID;
 document.body.appendChild(g);
 
-var clat = -21.133786;
-var clon = 14.5481193;
+const clat = -21.133786;
+const clon = 14.5481193;
 
-const rect = Cesium.Rectangle.fromDegrees(
-  clon - 0.01,
-  clat - 0.01,
-  clon + 0.01,
-  clat + 0.01
-);
-//Cesium.Camera.DEFAULT_VIEW_RECTANGLE = rect;
-//Cesium.Camera.DEFAULT_VIEW_FACTOR = 0.005;
-//Cesium.Camera.DEFAULT_VIEW_OFFSET = new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-10), 1)
-
-var viewer = new Cesium.Viewer(domID, opts);
+const viewer = new Cesium.Viewer(domID, opts);
 // Quadtree props: don't preload ancestors
 
 //viewer.scene.globe.baseColor = Cesium.Color.AQUAMARINE
@@ -85,7 +78,7 @@ var viewer = new Cesium.Viewer(domID, opts);
 viewer.extend(Cesium.viewerCesiumInspectorMixin);
 viewer.scene.debugShowFramesPerSecond = true;
 
-var extent = Cesium.Cartesian3.fromDegrees(clon, clat - 0.3, 8000);
+const extent = Cesium.Cartesian3.fromDegrees(clon, clat - 0.3, 8000);
 viewer.camera.setView({
   destination: extent,
   orientation: {

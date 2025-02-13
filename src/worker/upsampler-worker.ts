@@ -52,6 +52,7 @@ self.onmessage = function (msg) {
   let res = null;
   try {
     res = decodeTerrain(payload, objects);
+    // @ts-ignore
     self.postMessage({ id, payload: res }, objects);
   } catch (err) {
     const msg = err.message ?? err;

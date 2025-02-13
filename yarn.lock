@@ -1446,7 +1446,7 @@ __metadata:
     "@babel/core": "npm:^7.16.7"
     "@babel/preset-env": "npm:^7.16.7"
     "@babel/preset-typescript": "npm:^7.16.7"
-    "@macrostrat/hyper": "npm:^1.2.13"
+    "@macrostrat/hyper": "npm:^3.0.6"
     "@mapbox/martini": "git+https://github.com/davenquinn/martini.git"
     "@rollup/plugin-babel": "npm:^5.3.0"
     "@rollup/plugin-commonjs": "npm:^17.0.0"
@@ -1463,27 +1463,15 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@macrostrat/hyper@npm:^1.2.13":
-  version: 1.4.2
-  resolution: "@macrostrat/hyper@npm:1.4.2"
+"@macrostrat/hyper@npm:^3.0.6":
+  version: 3.0.6
+  resolution: "@macrostrat/hyper@npm:3.0.6"
   dependencies:
-    "@types/react": "npm:*"
-    "@types/react-hyperscript": "npm:^3.0.5"
-    classnames: "npm:^2.3.1"
-    react-hyperscript: "npm:^3.2.0"
-  checksum: 10c0/b5110cc7b075e9ab5d0f3ec610a7bbb8fba84a49109b5d801b9b69e0ff2468cd2f17ba91655480f9ae0329ed6401ec501a3aa68126da70eca8b046a7be9393fd
-  languageName: node
-  linkType: hard
-
-"@macrostrat/hyper@npm:^2.2.1":
-  version: 2.2.1
-  resolution: "@macrostrat/hyper@npm:2.2.1"
-  dependencies:
-    classnames: "npm:^2.3.1"
+    "@types/react": "npm:>= 16.0.0 < 20.0.0"
+    classnames: "npm:^2.5.1"
   peerDependencies:
-    "@types/react": ">= 16.0.0 < 19.0.0"
-    react: ">= 0.12.0 < 19.0.0"
-  checksum: 10c0/ba30122032cbad6f04fd052967974d2a16c26f2879873fdcf69ef4757ed52d04c3bce6419e7949c738946b9fa7ab43f829e468cb065921ddbd3f065c76ec13bb
+    react: ">= 0.12.0 < 20.0.0"
+  checksum: 10c0/8faed4cd532450dce2dc414694d7de4fecda167c561db6cb30ac72db10fe0fad4fd9e653198e6421cd24a52eed33133a00ae1d340ddb3bb8cc62a73fc5eddd2d
   languageName: node
   linkType: hard
 
@@ -2031,16 +2019,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/react-hyperscript@npm:^3.0.5":
-  version: 3.0.13
-  resolution: "@types/react-hyperscript@npm:3.0.13"
-  dependencies:
-    "@types/react": "npm:*"
-  checksum: 10c0/2532de4ea18f4c6e5d7e40b83ec01082529b210b666b5a30f9a6ed0cd12fbd0057c8389e1f3a97c413fe2728f7dbcc92588905cc07511fdc1bd9c0b4c9e347c1
-  languageName: node
-  linkType: hard
-
-"@types/react@npm:*":
+"@types/react@npm:>= 16.0.0 < 20.0.0":
   version: 19.0.8
   resolution: "@types/react@npm:19.0.8"
   dependencies:
@@ -2872,7 +2851,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"classnames@npm:^2.3.1":
+"classnames@npm:^2.5.1":
   version: 2.5.1
   resolution: "classnames@npm:2.5.1"
   checksum: 10c0/afff4f77e62cea2d79c39962980bf316bacb0d7c49e13a21adaadb9221e1c6b9d3cdb829d8bb1b23c406f4e740507f37e1dcf506f7e3b7113d17c5bab787aa69
@@ -3764,7 +3743,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "example-webpack-react@workspace:examples/webpack-react"
   dependencies:
-    "@macrostrat/hyper": "npm:^2.2.1"
+    "@macrostrat/hyper": "npm:^3.0.6"
     cesium: "npm:^1.109.0"
     core-js: "npm:^3.19.0"
     react: "npm:^17.0.2"
@@ -6138,15 +6117,6 @@ __metadata:
   peerDependencies:
     react: 17.0.2
   checksum: 10c0/51abbcb72450fe527ebf978c3bc989ba266630faaa53f47a2fae5392369729e8de62b2e4683598cbe651ea7873cd34ec7d5127e2f50bf4bfe6bd0c3ad9bddcb0
-  languageName: node
-  linkType: hard
-
-"react-hyperscript@npm:^3.2.0":
-  version: 3.2.0
-  resolution: "react-hyperscript@npm:3.2.0"
-  peerDependencies:
-    react: ">= 0.12.0 < 17.0.0"
-  checksum: 10c0/00ffffaffa7779c3c1e19160363df155b46f334f7975e6db0f9a9d1ff5f221cbff53758ec8848378e6d10f2ea950c345524ce49c8ccb2fd4de6891a4a72d371e
   languageName: node
   linkType: hard
 
