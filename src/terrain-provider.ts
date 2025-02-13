@@ -17,7 +17,6 @@ import {
   TerrainWorkerInput,
   emptyMesh as _emptyMesh,
 } from "./worker/worker-util";
-import { WorkerFarm } from "./worker/worker-farm";
 import { HeightmapResource } from "./resources/heightmap-resource";
 import WorkerFarmTerrainDecoder, {
   TerrainDecoder,
@@ -73,8 +72,6 @@ export class MartiniTerrainProvider<TerrainProvider> {
   availability = null;
   errorEvent = new CEvent();
   tilingScheme: TilingScheme;
-  workerFarm: WorkerFarm | null = null;
-  inProgressWorkers: number = 0;
   ellipsoid: Ellipsoid;
   levelOfDetailScalar: number | null = null;
   maxWorkers: number = 5;
@@ -208,7 +205,7 @@ export class MartiniTerrainProvider<TerrainProvider> {
        */
       return createTerrainMesh(res, meta);
     } catch (err) {
-      console.log(err);
+      //console.log(err);
       return createEmptyMesh({
         tileRect,
         errorLevel,

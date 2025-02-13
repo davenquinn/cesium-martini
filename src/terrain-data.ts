@@ -188,6 +188,24 @@ interface RasterParams {
 
 type RasterTerrainOptions = QuantizedMeshTerrainOptions & RasterParams;
 
+class UpsampleTracker {
+  ne: boolean;
+  nw: boolean;
+  se: boolean;
+  sw: boolean;
+
+  constructor() {
+    this.ne = false;
+    this.nw = false;
+    this.se = false;
+    this.sw = false;
+  }
+
+  finished() {
+    return this.ne && this.nw && this.se && this.sw;
+  }
+}
+
 export class RasterTerrainData
   extends QuantizedMeshTerrainData
   implements RasterParams
@@ -196,25 +214,50 @@ export class RasterTerrainData
   errorLevel: number;
   maxVertexDistance: number;
   tileSize: number;
-  private upsampleCount: number = 0;
+  private upsampleTracker: UpsampleTracker;
+
   constructor(opts: RasterTerrainOptions) {
     super(opts);
     this.quantizedHeights = opts.quantizedHeights;
     this.errorLevel = opts.errorLevel;
     this.maxVertexDistance = opts.maxVertexDistance ?? opts.tileSize;
     this.tileSize = opts.tileSize;
+    this.upsampleTracker = new UpsampleTracker();
   }
 
-  _upsample(tilingScheme, thisX, thisY, thisLevel, x, y, z) {
-    // Something wonky about our tiling scheme, perhaps
+  upsample(
+    tilingScheme: TilingScheme,
+    thisX: number,
+    thisY: number,
+    thisLevel: number,
+    descendantX: number,
+    descendantY: number,
+    descendantLevel: number,
+  ) {
+    if (this.quantizedHeights == null) {
+      return super.upsample(
+        tilingScheme,
+        thisX,
+        thisY,
+        thisLevel,
+        descendantX,
+        descendantY,
+        descendantLevel,
+      );
+    } // Something wonky about our tiling scheme, perhaps
     // 12/2215/2293 @2x
     //const url = `https://a.tiles.mapbox.com/v4/mapbox.terrain-rgb/${z}/${x}/${y}${hires}.${this.format}?access_token=${this.accessToken}`;
 
-    console.log(
-      `Upsampling terrain data from zoom ${thisLevel} to ${x}/${y}/${z}`,
-    );
+    const x = descendantX;
+    const y = descendantY;
+    const z = descendantLevel;
+
+    const tile = `${z}/${x}/${y}`;
+
+    //console.log(`Upsampling terrain data from zoom ${thisLevel} to ` + tile);
 
     const dz = z - thisLevel;
+
     const scalar = Math.pow(2, dz);
 
     const ellipsoid = tilingScheme.ellipsoid;
@@ -227,11 +270,15 @@ export class RasterTerrainData
     );
 
     const upscaledX = thisX * scalar;
-    const x0 = ((x - upscaledX) * this.tileSize) / scalar;
-    const x1 = ((x + 1 - upscaledX) * this.tileSize) / scalar;
     const upscaledY = thisY * scalar;
-    const y0 = ((y - upscaledY) * this.tileSize) / scalar;
-    const y1 = ((y + 1 - upscaledY) * this.tileSize) / scalar;
+
+    const dx: number = x - upscaledX;
+    const dy: number = y - upscaledY;
+
+    const x0 = (dx * this.tileSize) / scalar;
+    const x1 = ((dx + 1) * this.tileSize) / scalar;
+    const y0 = (dy * this.tileSize) / scalar;
+    const y1 = ((dy + 1) * this.tileSize) / scalar;
 
     const window = { x0, x1, y0, y1 };
 
@@ -247,45 +294,26 @@ export class RasterTerrainData
       tileSize: x1 - x0,
       overscaleFactor: dz,
     });
-    this.upsampleCount++;
-    if (this.upsampleCount == 4) {
+    if (dz == 1) {
+      // If we've got a single child tile, we can track that we've upsampled the parent.
+      const quadrant = getQuadrant(dx, dy);
+      this.upsampleTracker[quadrant] = true;
+    }
+    if (this.upsampleTracker.finished()) {
       // We've upsampled all child tiles and don't need to keep terrain data around anymore.
       this.quantizedHeights = undefined;
     }
 
     return res;
   }
+}
 
-  upsample(
-    tilingScheme,
-    thisX,
-    thisY,
-    thisLevel,
-    descendantX,
-    descendantY,
-    descendantLevel,
-  ) {
-    if (this.quantizedHeights == null) {
-      return super.upsample(
-        tilingScheme,
-        thisX,
-        thisY,
-        thisLevel,
-        descendantX,
-        descendantY,
-        descendantLevel,
-      );
-    }
-    return this._upsample(
-      tilingScheme,
-      thisX,
-      thisY,
-      thisLevel,
-      descendantX,
-      descendantY,
-      descendantLevel,
-    );
-  }
+function getQuadrant(dx: 0 | 1, dy: 0 | 1): "ne" | "nw" | "se" | "sw" {
+  if (dx == 0 && dy == 0) return "sw";
+  if (dx == 0 && dy == 1) return "nw";
+  if (dx == 1 && dy == 0) return "se";
+  if (dx == 1 && dy == 1) return "ne";
+  throw new Error("Invalid quadrant");
 }
 
 type OverscaleTerrainOptions = TerrainUpscaleInput & {
@@ -317,7 +345,6 @@ async function buildOverscaledTerrainTile(opts: OverscaleTerrainOptions) {
       maxVertexDistance,
     });
   } catch (err) {
-    console.error(err);
     return createEmptyMesh({
       tileRect,
       errorLevel,
