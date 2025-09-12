@@ -12,6 +12,6 @@
   },
   "devDependencies": {
     "webpack-config": "workspace:*",
-    "webpack-dev-server": "^4.3.1"
+    "webpack-dev-server": "^5.2.1"
   }
 }
