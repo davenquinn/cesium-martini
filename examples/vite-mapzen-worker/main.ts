@@ -1,6 +1,8 @@
-import { MartiniTerrainProvider } from "../..";
-import { DefaultHeightmapResource } from "../../src/resources/heightmap-resource";
-import { WorkerFarmTerrainDecoder } from "../../src/worker/decoder";
+import {
+  MartiniTerrainProvider,
+  DefaultHeightmapResource,
+  WorkerFarmTerrainDecoder,
+} from "../..";
 import { buildExample } from "../_shared";
 
 const terrariumWorker = new Worker(

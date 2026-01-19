@@ -1,4 +1,4 @@
-import type { UserConfig } from "vite";
+import { UserConfig } from "vite";
 import cesium from "vite-plugin-cesium";
 import path from "node:path";
 

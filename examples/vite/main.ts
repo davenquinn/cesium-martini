@@ -1,5 +1,5 @@
-import { MapboxTerrainProvider } from "../../..";
-import { buildExample } from "../../_shared";
+import { MapboxTerrainProvider } from "../..";
+import { buildExample } from "../_shared";
 
 // // @ts-ignore
 const terrainProvider = new MapboxTerrainProvider({

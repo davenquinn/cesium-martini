@@ -7691,6 +7691,16 @@ __metadata:
   languageName: node
   linkType: hard
 
+"vite-config@workspace:examples/_vite-config":
+  version: 0.0.0-use.local
+  resolution: "vite-config@workspace:examples/_vite-config"
+  dependencies:
+    cesium: "npm:^1.137.0"
+    vite: "npm:^7.3.1"
+    vite-plugin-cesium: "npm:^1.2.23"
+  languageName: unknown
+  linkType: soft
+
 "vite-plugin-cesium@npm:^1.2.23":
   version: 1.2.23
   resolution: "vite-plugin-cesium@npm:1.2.23"
