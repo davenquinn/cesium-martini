@@ -10,8 +10,8 @@
     "@macrostrat/hyper": "^3.0.6",
     "cesium": "^1.137.0",
     "core-js": "^3.19.0",
-    "react": "^17.0.2",
-    "react-dom": "^17.0.2",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
     "resium": "^1.19.2",
     "webpack-dev-server": "^4.3.1"
   },

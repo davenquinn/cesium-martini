@@ -4,11 +4,13 @@ import "cesium/Source/Widgets/widgets.css";
 const Cesium: any = require("cesium/Source/Cesium");
 // Import @types/cesium to use along with CesiumJS
 import { MapboxImageryProvider } from "cesium";
-import TerrainProvider from "../../../dist";
-import { render } from "react-dom";
+import TerrainProvider from "../../..";
+import { createRoot } from "react-dom/client";
 import { useRef, useEffect } from "react";
 import h from "@macrostrat/hyper";
 import { Viewer, ImageryLayer, useCesium } from "resium";
+
+console.log("Cesium version:", Cesium.VERSION);
 
 const terrainProvider = new TerrainProvider({
   // @ts-ignore
@@ -58,5 +60,12 @@ function CesiumView() {
     [h(SatelliteLayer), h(Inspector)],
   );
 }
-render(h(CesiumView), document.body);
+
+const root = document.createElement("div");
+document.body.appendChild(root);
+
+const reactRoot = createRoot(root);
+
+reactRoot.render(h(CesiumView));
+
 document.title = "Mapbox / Resium Terrain Example";
