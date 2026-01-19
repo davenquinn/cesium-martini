@@ -153,8 +153,9 @@ The configuration also takes a single number and array.
 ## `[1.6.0]`: January 2026
 
 - Upgrade Cesium dependency
-- Upgrade vite examples considerably
+- Upgrade examples considerably
 - Remove unneeded `axios` dependency
+- Note: `example:mapzen` does not work, but `example:mapzen-webpack` still does.
 
 ### `[1.5.3]`: February 2025
 
