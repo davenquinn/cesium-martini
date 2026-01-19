@@ -150,10 +150,16 @@ The configuration also takes a single number and array.
 
 ## Changelog
 
+## `[1.6.0]`: January 2026
+
+- Upgrade Cesium dependency
+- Upgrade vite examples considerably
+- Remove unneeded `axios` dependency
+
 ### `[1.5.3]`: February 2025
 
-- Removed `source` field from package.json, as it should be reserved for modules that
-  can be bundled without special treatment (e.g., web worker compilation).
+- Removed `source` field from package.json, as it should be reserved for modules
+  that can be bundled without special treatment (e.g., web worker compilation).
 
 ### `[1.5.2]`: February 2025
 

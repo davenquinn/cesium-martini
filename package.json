@@ -1,6 +1,6 @@
 {
   "name": "@macrostrat/cesium-martini",
-  "version": "1.5.3",
+  "version": "1.6.0",
   "description": "On-the-fly meshing of raster elevation tiles for the CesiumJS virtual globe",
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
