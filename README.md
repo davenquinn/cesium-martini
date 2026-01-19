@@ -150,12 +150,12 @@ The configuration also takes a single number and array.
 
 ## Changelog
 
-## `[1.6.0]`: January 2026
+### `[1.6.0]`: January 2026
 
 - Upgrade Cesium dependency
 - Upgrade examples considerably
 - Remove unneeded `axios` dependency
-- Note: `example:mapzen` does not work, but `example:mapzen-webpack` still does.
+- Note: `example:mapzen` does not work, but `example:mapzen-webpack` still does (https://github.com/davenquinn/cesium-martini/issues/39).
 
 ### `[1.5.3]`: February 2025
 
