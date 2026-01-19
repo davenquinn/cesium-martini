@@ -5,12 +5,13 @@ import {
   MartiniTerrainProvider,
   StretchedTilingScheme,
 } from "./terrain-provider";
-import MapboxTerrainProvider from "./mapbox-terrain-provider";
+import { MapboxTerrainProvider } from "./mapbox-terrain-provider";
 export * from "./worker/decoder";
 export * from "./worker/worker-util";
 
 export default MapboxTerrainProvider;
 export {
+  MapboxTerrainProvider,
   MartiniTerrainProvider,
   DefaultHeightmapResource,
   MapboxTerrainResource,

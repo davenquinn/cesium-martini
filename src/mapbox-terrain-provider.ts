@@ -9,7 +9,7 @@ import MapboxTerrainWorker from "web-worker:./worker/mapbox-worker";
 type MapboxTerrainOpts = Omit<MartiniTerrainOpts, "resource"> &
   MapboxTerrainResourceOpts;
 
-export default class MapboxTerrainProvider extends MartiniTerrainProvider<TerrainProvider> {
+export class MapboxTerrainProvider extends MartiniTerrainProvider<TerrainProvider> {
   constructor(opts: MapboxTerrainOpts = {}) {
     const resource = new MapboxTerrainResource(opts);
     const decoder = new WorkerFarmTerrainDecoder({

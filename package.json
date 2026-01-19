@@ -35,7 +35,7 @@
     "@mapbox/martini": "git+https://github.com/davenquinn/martini.git",
     "@types/ndarray": "^1.0.11",
     "axios": "^1.7.9",
-    "cesium": "^1.81.0",
+    "cesium": "^1.137.0",
     "get-pixels": "^3.3.2",
     "ndarray": "^1.0.19"
   },
@@ -57,7 +57,7 @@
     "prettier": "^3.5.0",
     "rollup": "^2.39.0",
     "rollup-plugin-web-worker-loader": "^1.5.0",
-    "typescript": "^5.0.0"
+    "typescript": "^5.9.3"
   },
   "packageManager": "yarn@4.12.0"
 }

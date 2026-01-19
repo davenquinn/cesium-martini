@@ -1,8 +1,8 @@
-import TerrainProvider from "../../..";
+import { MapboxTerrainProvider } from "../../..";
 import { buildExample } from "../../_shared";
 
 // // @ts-ignore
-const terrainProvider = new TerrainProvider({
+const terrainProvider = new MapboxTerrainProvider({
   requestVertexNormals: false,
   requestWaterMask: false,
   accessToken: import.meta.env.MAPBOX_API_TOKEN,

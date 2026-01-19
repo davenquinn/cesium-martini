@@ -8,7 +8,7 @@
   "license": "ISC",
   "dependencies": {
     "@mapbox/martini": "git+https://github.com/davenquinn/martini.git",
-    "cesium": "^1.109.0",
+    "cesium": "^1.137.0",
     "core-js": "^3.19.0",
     "ndarray": "^1.0.19"
   },

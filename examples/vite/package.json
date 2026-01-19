@@ -9,12 +9,12 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "vite": "^5.3.2",
-    "vite-plugin-cesium": "^1.2.22"
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vite-plugin-cesium": "^1.2.23"
   },
   "packageManager": "yarn@3.6.3",
   "dependencies": {
-    "cesium": "^1.109.0"
+    "cesium": "^1.137.0"
   }
 }
