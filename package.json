@@ -34,9 +34,8 @@
   "dependencies": {
     "@mapbox/martini": "git+https://github.com/davenquinn/martini.git",
     "@types/ndarray": "^1.0.11",
-    "axios": "^1.7.9",
     "cesium": "^1.137.0",
-    "get-pixels": "^3.3.2",
+    "get-pixels": "^3.3.3",
     "ndarray": "^1.0.19"
   },
   "workspaces": [

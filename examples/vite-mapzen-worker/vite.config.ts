@@ -1,11 +1,15 @@
-import { UserConfig } from "vite";
+import type { UserConfig } from "vite";
 import cesium from "vite-plugin-cesium";
-import path from "path";
+import path from "node:path";
 
-const cesiumRoot = import.meta
-  .resolve("cesium")
-  .replace("/index.cjs", "/Build");
-const cesiumBuildPath = path.resolve(cesiumRoot, "Cesium");
+const cesiumPath = import.meta.resolve("cesium").replace("file://", "");
+
+const cesiumRoot = cesiumPath.replace("/Source/Cesium.js", "/Build");
+const cesiumBuildPath = path.join(cesiumRoot, "Cesium");
+
+console.log(cesiumPath);
+console.log(cesiumRoot);
+console.log(cesiumBuildPath);
 
 const config: UserConfig = {
   // override the cache dir because we don't have a node_modules folder with yarn PnP
