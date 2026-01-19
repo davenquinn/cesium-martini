@@ -7,7 +7,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "cesium": "^1.109.0",
+    "cesium": "^1.137.0",
     "core-js": "^3.19.0"
   },
   "devDependencies": {

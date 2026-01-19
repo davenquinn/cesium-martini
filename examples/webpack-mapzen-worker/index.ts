@@ -4,7 +4,7 @@ import {
   MartiniTerrainProvider,
   DefaultHeightmapResource,
   WorkerFarmTerrainDecoder,
-} from "lib";
+} from "../../dist";
 
 import TerrariumWorker from "./mapzen.worker";
 import { buildExample } from "../_shared";

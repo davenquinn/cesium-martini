@@ -7,7 +7,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "cesium": "^1.109.0",
+    "cesium": "^1.137.0",
     "core-js": "^3.19.0"
   },
   "devDependencies": {
@@ -23,9 +23,9 @@
     "html-webpack-plugin": "^5.3.2",
     "path-browserify": "^1.0.1",
     "style-loader": "^3.2.1",
-    "typescript": "^5",
-    "webpack": "^5.64.1",
-    "webpack-cli": "^4.9.1",
+    "typescript": "^5.9.3",
+    "webpack": "^5.104.1",
+    "webpack-cli": "^6.0.1",
     "worker-loader": "^3.0.8"
   }
 }
