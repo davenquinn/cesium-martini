@@ -260,7 +260,9 @@ export class MartiniTerrainProvider<TerrainProvider> {
     } = workerOutput;
 
     const err = errorLevel;
-    const skirtHeight = err * 20;
+    // Match Cesium's own quantized-mesh skirt scale to avoid exaggerated
+    // low-LOD skirts poking through adjacent terrain.
+    const skirtHeight = err * 5;
 
     const center = Rectangle.center(tileRect);
 

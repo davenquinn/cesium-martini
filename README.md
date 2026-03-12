@@ -225,6 +225,11 @@ overall design.
 
 - Fix memory leak where `ArrayBuffer`s were retained due to console logging.
 
+### `[unreleased]`
+
+- Reduce quantized-mesh skirt height to match Cesium's own terrain provider,
+  which avoids exaggerated low-LOD skirt spikes near adjacent terrain.
+
 ### `[1.1.2]`: May 2021
 
 - Fixed a bug with loading high-resolution tiles
