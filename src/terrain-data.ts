@@ -81,7 +81,9 @@ export function createTerrainMesh(
   } = meta;
 
   const err = errorLevel;
-  const skirtHeight = err * 20;
+  // Match Cesium's own quantized-mesh skirt scale to avoid exaggerated
+  // low-LOD skirts poking through adjacent terrain.
+  const skirtHeight = err * 5;
 
   // Check if tileRect is not NaNs
   if (isNaN(tileRect.east) || isNaN(tileRect.north)) {
